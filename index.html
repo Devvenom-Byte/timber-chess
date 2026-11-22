@@ -1605,7 +1605,14 @@ const Fam={
   },
   later(fn,ms){ const tok=this.ctok; this.timers.push(setTimeout(()=>{ if(tok===this.ctok) fn(); },ms)); },
   mkPeer(id){
-    const opts={debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'turn:eu-0.turn.peerjs.com:3478',username:'peerjs',credential:'peerjsp'},{urls:'turn:us-0.turn.peerjs.com:3478',username:'peerjs',credential:'peerjsp'}]}};
+    // STUN finds each phone's public address; TURN (Metered free plan) relays moves when phones
+    // can't reach each other directly, e.g. on mobile data. The old PeerJS TURN servers no longer exist.
+    // TURN credential is public by design (client-side app); the free plan has no card, so it can't bill.
+    const opts={debug:0,config:{iceServers:[
+      {urls:['stun:stun.l.google.com:19302','stun:stun.relay.metered.ca:80']},
+      {urls:['turn:global.relay.metered.ca:80','turn:global.relay.metered.ca:80?transport=tcp','turn:global.relay.metered.ca:443','turns:global.relay.metered.ca:443?transport=tcp'],
+       username:'d1b3a998b0fbf660b42435cd',credential:'9x5XOHXaA91lyaAP'}
+    ]}};
     return id?new window.Peer(id,opts):new window.Peer(opts);
   },
   connect(){
