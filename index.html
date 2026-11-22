@@ -191,6 +191,14 @@ nav.tabs button.on{color:var(--accent2);background:rgba(227,165,90,.1)}
 .themes button{flex:1;border-radius:12px;padding:6px;background:var(--panel);border:2px solid transparent;font-size:12px;color:var(--muted)}
 .themes button img{width:100%;border-radius:6px;display:block;margin-bottom:4px}
 .themes button.on{border-color:var(--accent);color:var(--text)}
+.article h2{margin:2px 0 10px}
+.article h4{margin:16px 0 4px;font-size:15px;color:var(--text);text-transform:none;letter-spacing:0}
+.article p,.article li{font-size:15px;line-height:1.55;color:var(--text);opacity:.92}
+.article ul{margin:6px 0 6px 20px;padding:0}
+.article li{margin:3px 0}
+.article .tip{margin-top:14px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--accent2) 12%,transparent);border-left:3px solid var(--accent2)}
+.learnhub{margin-top:10px}
+.learnhub .item .t span{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35}
 .psets{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .psets button{border-radius:12px;padding:6px 4px 7px;background:var(--panel);border:2px solid transparent;font-size:11.5px;line-height:1.2;color:var(--muted)}
 .psets button.on{border-color:var(--accent);color:var(--text)}
@@ -1061,7 +1069,7 @@ const sessions={};
   sessions.openings=Object.assign(mkSession(newGame()),{op:null,mistakes:0,done:false,msg:'',msgType:''});
   sessions.puzzles=Object.assign(mkSession(newGame()),{idx:-1,left:0,solved:false,msg:'',msgType:'',checking:false});
   sessions.family=Object.assign(mkSession(newGame()),{gid:null});
-  sessions.learn=Object.assign(mkSession(newGame()),{les:null,step:0,done:false,msg:'',msgType:'',checking:false});
+  sessions.learn=Object.assign(mkSession(newGame()),{les:null,fg:null,step:0,done:false,msg:'',msgType:'',checking:false});
 })();
 function rebuildSans(game){ const e=EngineFactory(); e.setFen(game.start); const sans=[]; const ok=[];
   for(const u of game.moves){ const m=e.fromUci(u); if(!m) break; sans.push(e.san(m)); ok.push(u); e.make(m); }
@@ -1075,7 +1083,7 @@ function humanCanMove(color){
     case 'play': return s.kind==='local'||color===s.human;
     case 'openings': return s.op&&!s.done&&color===s.op.side;
     case 'puzzles': return s.idx>=0&&!s.solved&&!s.checking&&color===s.side;
-    case 'learn': return !!s.les&&!s.done&&!s.checking&&color==='w';
+    case 'learn': if(s.fg) return s.awaitGuess&&!s.checking&&color===(s.game.moves.length%2?'b':'w'); return !!s.les&&!s.done&&!s.checking&&color==='w';
     case 'family': return Fam.canIMove(color);
   }
   return false;
@@ -1378,7 +1386,7 @@ function afterMove(s){
   }
   if(s===sessions.openings){ openingsAfter(s); return; }
   if(s===sessions.puzzles){ puzzleAfter(s); return; }
-  if(s===sessions.learn){ learnAfter(s); return; }
+  if(s===sessions.learn){ if(s.fg) fgAfter(s); else learnAfter(s); return; }
   if(s===sessions.family){ Fam.afterLocalMove(); return; }
 }
 async function cpuMove(){
@@ -1414,6 +1422,7 @@ function startPlay(kind,colorPref,level){
 async function showHint(){
   const s=cur(); if(s.over||S.thinking) return;
   if(S.tab==='openings'){ S.hint=s.op.uci[s.game.moves.length]||null; renderHL(); return; }
+  if(S.tab==='learn'&&s.fg){ if(s.awaitGuess&&!s.checking){ S.hint=s.fg.uci[s.game.moves.length]; renderHL(); } return; }
   if(S.tab==='learn'){ const st=learnStep(s); if(st&&!s.done&&!s.checking){ S.hint=st.sol; renderHL(); } return; }
   if(S.tab==='puzzles'){
     S.busy=true; renderPanel();
@@ -1534,7 +1543,7 @@ function loadLearnStep(s){
   if(S.tab==='learn'){ renderLabels(); renderPieces({instant:true}); renderAll(); }
 }
 function startLesson(les){
-  const s=sessions.learn; s.les=les; s.step=0; s.done=false; s.msg=''; s.msgType='';
+  const s=sessions.learn; s.fg=null; s.awaitGuess=false; s.les=les; s.step=0; s.done=false; s.msg=''; s.msgType='';
   loadLearnStep(s);
   if(S.tab!=='learn') switchTab('learn',true);
 }
@@ -1568,6 +1577,256 @@ function learnAfter(s){
     },1100);
   }
 }
+
+/* ================= learn: famous games & readings ================= */
+// Famous games: real master games, stepped through move by move with notes.
+// notes: key = move number + '.' (White's move) or '...' (Black's move). A note starting with '?' is a
+// "guess the move" moment: in Guess mode the app stops there and asks you to find the master's move.
+const FAMOUS=[
+  {id:'opera',heroName:'Morphy',title:'The Opera Game',white:'Paul Morphy',black:'Duke Karl & Count Isouard',where:'Paris, 1858',hero:'w',
+   about:'Played in a box at the Paris opera during a performance. Morphy, perhaps the most gifted player of the 1800s, shows how fast development and open lines crush an opponent who wastes time.',
+   moves:'e4 e5 Nf3 d6 d4 Bg4 dxe5 Bxf3 Qxf3 dxe5 Bc4 Nf6 Qb3 Qe7 Nc3 c6 Bg5 b5 Nxb5 cxb5 Bxb5+ Nbd7 O-O-O Rd8 Rxd7 Rxd7 Rd1 Qe6 Bxd7+ Nxd7 Qb8+ Nxb8 Rd8#',
+   notes:{'2...':'The Philidor Defence: solid but a bit passive.',
+    '3...':'Pinning the knight. Black will soon have to give up this bishop.',
+    '5.':'White recaptures with the queen, which now eyes f7 and b7.',
+    '6.':'?Bc4! Develop with a threat: the bishop joins the queen in aiming at f7.',
+    '7.':'?Qb3! A double attack: f7 and the b7 pawn are both hit.',
+    '7...':'Black blocks with the queen, but now the f8 bishop is stuck behind it.',
+    '9.':'Every White piece comes out with tempo, while Black\'s kingside sleeps.',
+    '10.':'?Nxb5! A sacrifice to rip open lines toward the black king. Morphy cares about time, not material.',
+    '11.':'Pin! The knight on d7 cannot move without exposing the king.',
+    '12.':'?O-O-O! Castling brings the rook straight onto the open d-file, aimed at the pinned knight.',
+    '13.':'?Rxd7! Giving the rook back to keep the attack rolling.',
+    '14.':'Another rook joins. Black is completely tied up.',
+    '15.':'?Bxd7+! Removing a defender of d8...',
+    '16.':'?Qb8+!! The famous queen sacrifice. The knight must take, leaving d8 unguarded.',
+    '17.':'Checkmate with just a rook and bishop, while Black still has a queen and rook at home. Development beats material.'}},
+  {id:'legal',heroName:'Légal',title:'Légal\'s Trap',white:'Sire de Légal',black:'Saint Brie',where:'Paris, 1750',hero:'w',
+   about:'One of the oldest recorded traps. Légal, the strongest player in Paris in his day, lets his queen be taken and mates with his minor pieces. A must-know pattern for beginners.',
+   moves:'e4 e5 Nf3 d6 Bc4 Bg4 Nc3 g6 Nxe5 Bxd1 Bxf7+ Ke7 Nd5#',
+   notes:{'3...':'The bishop pins the knight to the queen... or does it?',
+    '4...':'A slow move. Black never develops a piece that guards the king.',
+    '5.':'?Nxe5!! White breaks the "pin" and leaves the queen hanging.',
+    '5...':'Greedy! Black grabs the queen. (Taking the knight was better.)',
+    '6.':'?Bxf7+! Check, and the king has just one square.',
+    '7.':'?Nd5# Checkmate by three minor pieces. Lesson: a pin to a queen is not a real pin.'}},
+  {id:'immortal',heroName:'Anderssen',title:'The Immortal Game',white:'Adolf Anderssen',black:'Lionel Kieseritzky',where:'London, 1851',hero:'w',
+   about:'A friendly game played during the first international tournament. Anderssen gives away both rooks, a bishop and his queen, and still mates. The most famous attacking game of the romantic era.',
+   moves:'e4 e5 f4 exf4 Bc4 Qh4+ Kf1 b5 Bxb5 Nf6 Nf3 Qh6 d3 Nh5 Nh4 Qg5 Nf5 c6 g4 Nf6 Rg1 cxb5 h4 Qg6 h5 Qg5 Qf3 Ng8 Bxf4 Qf6 Nc3 Bc5 Nd5 Qxb2 Bd6 Bxg1 e5 Qxa1+ Ke2 Na6 Nxg7+ Kd8 Qf6+ Nxf6 Be7#',
+   notes:{'2.':'The King\'s Gambit: White offers a pawn to open the f-file and speed up development.',
+    '3...':'Check! White\'s king must move and loses the right to castle.',
+    '4...':'The Bryan Counter-Gambit: Black gives a pawn back to pull the bishop aside.',
+    '9.':'The knight on f5 is a monster, eyeing g7 and d6.',
+    '10.':'?g4! Chasing the black queen with pawns while gaining space.',
+    '11.':'Anderssen calmly lets the bishop go. He is playing for the attack.',
+    '15.':'?Bxf4 Winning the pawn back and bringing another piece into the attack.',
+    '17.':'?Nd5! Ignoring the threat to b2 and the rook on a1. The attack matters more.',
+    '18.':'?Bd6!! Offering the second rook too. The bishop takes away f8 and e7 from the black king.',
+    '19.':'?e5! Shutting the black queen out of the defence. Now Black has a pile of extra material, and no moves that help.',
+    '20.':'White has given away both rooks, yet the black king is trapped.',
+    '21.':'?Nxg7+ The knight drives the king out.',
+    '22.':'?Qf6+!! The final sacrifice: the queen.',
+    '23.':'?Be7# Checkmate with three minor pieces against Black\'s whole army.'}},
+  {id:'evergreen',heroName:'Anderssen',title:'The Evergreen Game',white:'Adolf Anderssen',black:'Jean Dufresne',where:'Berlin, 1852',hero:'w',
+   about:'Anderssen again. So beautiful that the future world champion Wilhelm Steinitz said it would stay "evergreen" forever. Watch how White opens the centre against a king that never castles.',
+   moves:'e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bxb4 c3 Ba5 d4 exd4 O-O d3 Qb3 Qf6 e5 Qg6 Re1 Nge7 Ba3 b5 Qxb5 Rb8 Qa4 Bb6 Nbd2 Bb7 Ne4 Qf5 Bxd3 Qh5 Nf6+ gxf6 exf6 Rg8 Rad1 Qxf3 Rxe7+ Nxe7 Qxd7+ Kxd7 Bf5+ Ke8 Bd7+ Kf8 Bxe7#',
+   notes:{'4.':'The Evans Gambit: a pawn sacrificed to build a big centre quickly.',
+    '7.':'Castling and offering more material. White wants open lines.',
+    '9.':'?e5! Gaining space and cutting the black queen off from the kingside.',
+    '11.':'?Ba3 The bishop stops Black from castling kingside: f8 is covered.',
+    '17.':'?Nf6+!! Opening the g-file... but the real target is the e-file and the d7 square.',
+    '19.':'?Rad1!! A quiet move in the middle of a fight. White ignores the threat of mate on g2 because his own attack comes first.',
+    '20.':'?Rxe7+! Clearing the way...',
+    '21.':'?Qxd7+!! The queen sacrifice that breaks open the king.',
+    '22.':'?Bf5+ A double check: the rook on d1 and the bishop both give check.',
+    '24.':'?Bxe7# Checkmate. Every White move after 19 was a check or a sacrifice.'}},
+  {id:'reti',heroName:'Réti',title:'Réti\'s Quick Mate',white:'Richard Réti',black:'Savielly Tartakower',where:'Vienna, 1910',hero:'w',
+   about:'Two future grandmasters in a casual game. Black grabs material with his queen early, and Réti punishes it with a stunning queen sacrifice in just 11 moves.',
+   moves:'e4 c6 d4 d5 Nc3 dxe4 Nxe4 Nf6 Qd3 e5 dxe5 Qa5+ Bd2 Qxe5 O-O-O Nxe4 Qd8+ Kxd8 Bg5+ Kc7 Bd8#',
+   notes:{'1...':'The Caro-Kann Defence, a solid choice.',
+    '5...':'A sharp try, but it opens lines while Black\'s king is still in the centre.',
+    '7...':'The queen has moved three times. Black is behind in development.',
+    '8.':'?O-O-O! Castling and putting the rook on the open d-file, opposite the black king.',
+    '8...':'Black grabs the knight. Now look at the d-file...',
+    '9.':'?Qd8+!! The queen is offered. Taking it is forced.',
+    '10.':'?Bg5+ Double check: the bishop and the rook on d1 both attack the king.',
+    '11.':'?Bd8# Checkmate. Black\'s queen and knights are all far away.'}},
+  {id:'century',heroName:'Fischer',title:'The Game of the Century',white:'Donald Byrne',black:'Bobby Fischer',where:'New York, 1956',hero:'b',
+   about:'Bobby Fischer was 13 years old. His queen sacrifice against a leading American master became known as "the game of the century". Fischer later became world champion.',
+   moves:'Nf3 Nf6 c4 g6 Nc3 Bg7 d4 O-O Bf4 d5 Qb3 dxc4 Qxc4 c6 e4 Nbd7 Rd1 Nb6 Qc5 Bg4 Bg5 Na4 Qa3 Nxc3 bxc3 Nxe4 Bxe7 Qb6 Bc4 Nxc3 Bc5 Rfe8+ Kf1 Be6 Bxb6 Bxc4+ Kg1 Ne2+ Kf1 Nxd4+ Kg1 Ne2+ Kf1 Nc3+ Kg1 axb6 Qb4 Ra4 Qxb6 Nxd1 h3 Rxa2 Kh2 Nxf2 Re1 Rxe1 Qd8+ Bf8 Nxe1 Bd5 Nf3 Ne4 Qb8 b5 h4 h5 Ne5 Kg7 Kg1 Bc5+ Kf1 Ng3+ Ke1 Bb4+ Kd1 Bb3+ Kc1 Ne2+ Kb1 Nc3+ Kc1 Rc2#',
+   notes:{'4...':'Fischer castles early: king safe first, fight later.',
+    '11...':'?Na4!! A shock. If the knight is taken, Black wins the e4 pawn with a strong attack.',
+    '13...':'Black has won a pawn and White\'s king is still in the middle.',
+    '14...':'The queen is left hanging on purpose.',
+    '16...':'?Rfe8+ Check, and the white king has to walk.',
+    '17...':'?Be6!!! The famous move. Fischer gives up his queen for a crushing attack.',
+    '18...':'?Bxc4+ Now begins a "windmill" of discovered checks.',
+    '19...':'Knight and bishop work together: every knight move is a check from the bishop.',
+    '22...':'The knight has collected the d4 pawn and returns to attack the queen and rook.',
+    '23...':'Fischer has a rook, two bishops and a knight for the queen. Far more than enough.',
+    '25...':'Black picks up a rook as well. The material count is now hugely in Black\'s favour.',
+    '29...':'The long endgame begins. Black\'s pieces coordinate perfectly to hunt the king.',
+    '41...':'?Rc2# Checkmate, delivered by a 13-year-old.'}}
+];
+for(const g of FAMOUS){ g.uci=sanToUci(g.moves); g.sans=g.moves.split(' '); g.noteAt=[]; g.guessAt=[]; g.markAt=[];
+  for(const k in g.notes){ const n=parseInt(k,10), black=k.endsWith('...'), i=2*(n-1)+(black?1:0); let t=g.notes[k]; if(t[0]==='?'){ g.guessAt[i]=true; t=t.slice(1); const mk=t.match(/^(\S+)\s*/); g.markAt[i]=mk[1]; t=t.slice(mk[0].length); } g.noteAt[i]=t; } }
+const fgDone=store.get('fgDone',{});
+function startFamous(g){
+  const s=sessions.learn; S.token++;
+  Object.assign(s,{les:null,fg:g,guess:store.get('fgGuess',true),awaitGuess:false,tries:0,right:0,asked:0,checking:false,done:false,msg:'',msgType:'',view:null,over:null,orientation:g.hero});
+  s.game=newGame(); s.eng.loadUci(START,[]); S.hint=null; S.selected=-1; S.targets=new Map();
+  if(S.tab!=='learn') switchTab('learn',true); else { renderLabels(); renderPieces({instant:true}); renderAll(); }
+  fgPrompt(s);
+}
+// Is the next move a "guess" moment for the hero?
+function fgPrompt(s){
+  const g=s.fg, i=s.game.moves.length;
+  s.awaitGuess=!!(s.guess&&g.guessAt[i]&&i<g.uci.length&&(i%2===0?'w':'b')===g.hero);
+  s.tries=0;
+  if(s.awaitGuess){ s.msg=`Your turn: what did ${g.heroName} play here? Make the move on the board.`; s.msgType=''; }
+}
+function fgPlay(s,ms){
+  const g=s.fg, i=s.game.moves.length; if(i>=g.uci.length) return;
+  const u=g.uci[i], m=s.eng.fromUci(u); if(!m) return;
+  const san=s.eng.san(m); s.eng.make(m); s.game.moves.push(u); s.game.sans.push(san);
+  if(S.tab==='learn'){ S.selected=-1; S.targets=new Map(); S.hint=null; renderPieces({hints:[[nameSq(u.slice(0,2)),nameSq(u.slice(2,4))]],ms:ms||240});
+    setTimeout(()=>{ if(san.includes('#')||san.includes('+')) SFX.check(); else if(san.startsWith('O-O')) SFX.castle(); else if(san.includes('x')) SFX.capture(); else SFX.move(); },180); }
+  if(s.game.moves.length===g.uci.length){ fgDone[g.id]=1; store.set('fgDone',fgDone); }
+}
+function fgGoto(s,n){
+  const g=s.fg; n=clamp(n,0,g.uci.length); S.token++;
+  s.checking=false; s.msg=''; s.msgType='';
+  if(n===s.game.moves.length+1&&!s.awaitGuess){ fgPlay(s); }
+  else if(n!==s.game.moves.length){ s.game=newGame(); s.game.moves=g.uci.slice(0,n); s.game.sans=g.sans.slice(0,n); s.eng.loadUci(START,s.game.moves); S.hint=null; if(S.tab==='learn') renderPieces({ms:180}); }
+  fgPrompt(s); renderAll();
+}
+function fgNext(s){
+  if(s.awaitGuess){ // "Show me" instead of guessing
+    s.asked++; s.awaitGuess=false; const i=s.game.moves.length; fgPlay(s); s.msg=`${s.fg.heroName} played ${s.fg.sans[i]}.`; s.msgType=''; fgPrompt2(s); renderAll(); return;
+  }
+  fgGoto(s,s.game.moves.length+1);
+}
+// After showing a guessed move, the next move may itself be a guess moment.
+function fgPrompt2(s){ const keep=s.msg, kt=s.msgType; fgPrompt(s); if(!s.awaitGuess){ s.msg=keep; s.msgType=kt; } }
+// The player made a move on the board in Guess mode.
+function fgAfter(s){
+  const g=s.fg, i=s.game.moves.length-1, u=s.game.moves[i], tok=S.token, want=g.uci[i];
+  s.checking=true;
+  if(u===want||(u.slice(0,4)===want.slice(0,4)&&want.length===4)){
+    s.awaitGuess=false; s.asked++; if(s.tries===0) s.right++;
+    s.msg=s.tries===0?`Yes! ${g.sans[i]} is exactly what ${g.heroName} played.`:`That's it: ${g.sans[i]}.`; s.msgType='good';
+    if(S.tab==='learn') flash(nameSq(u.slice(2,4)),'right'); SFX.good();
+    if(s.game.moves.length===g.uci.length){ fgDone[g.id]=1; store.set('fgDone',fgDone); }
+    s.checking=false; fgPrompt2(s); renderAll(); return;
+  }
+  s.tries++;
+  s.msg=s.tries<2?'Not the move that was played. Have another look: checks, captures and threats first.':`Good try. ${g.heroName} played ${g.sans[i]}.`; s.msgType='bad'; renderAll(); SFX.bad(); buzz([20,40,20]);
+  setTimeout(()=>{
+    if(tok!==S.token) return;
+    s.game.moves.pop(); s.game.sans.pop(); s.eng.loadUci(START,s.game.moves); s.checking=false;
+    if(S.tab==='learn') renderPieces({ms:220});
+    if(s.tries>=2){ s.awaitGuess=false; s.asked++; setTimeout(()=>{ if(tok!==S.token) return; fgPlay(s); fgPrompt2(s); renderAll(); },300); }
+    renderAll();
+  },1100);
+}
+function openFamous(){
+  const items=FAMOUS.map((g,i)=>`<button class="item" data-fg="${i}"><div class="t"><b>${esc(g.title)}</b><span>${esc(g.white)} vs ${esc(g.black)} · ${esc(g.where)}</span></div>${fgDone[g.id]?'<span class="tag good">✓ Seen</span>':`<span class="tag">${Math.ceil(g.uci.length/2)} moves</span>`}</button>`).join('');
+  openSheet(`<h2>Famous games</h2><p class="note">Replay real games by great players, with notes on the key moves. In <b>Guess mode</b> the game pauses at the big moments so you can find the master's move yourself.</p><div class="list">${items}</div>`,'famous');
+  $('#sheet').onclick=e=>{ const b=e.target.closest('[data-fg]'); if(b){ closeSheet(); $('#sheet').onclick=null; startFamous(FAMOUS[+b.dataset.fg]); } };
+}
+
+// Readings: short articles. Written in plain language; body is trusted static HTML.
+const READINGS=[
+  {id:'open',title:'The three golden rules of the opening',mins:3,body:`
+<p>The first 10 or so moves decide whether your pieces are ready to fight. Strong players follow three simple rules.</p>
+<h4>1. Fight for the centre</h4>
+<p>The four middle squares (d4, e4, d5, e5) are the most important on the board. A piece in the centre reaches more squares than one on the edge. Start with a centre pawn: <b>e4</b> or <b>d4</b> (or <b>e5</b>/<b>d5</b> as Black).</p>
+<h4>2. Develop your pieces</h4>
+<p>"Developing" means bringing your knights and bishops off the back row so they can join the game. Knights first is a good habit: <b>Nf3</b> and <b>Nc3</b>. Try to move each piece <b>once</b> before moving any piece twice.</p>
+<h4>3. Castle early</h4>
+<p>Castling tucks your king behind a wall of pawns and brings a rook toward the centre. Most masters castle within the first 10 moves.</p>
+<h4>Common beginner mistakes</h4>
+<ul><li><b>Bringing the queen out early.</b> It gets chased around and you lose time.</li><li><b>Too many pawn moves.</b> Pawns can't move back; every pawn move leaves gaps.</li><li><b>Moving the same piece again and again</b> while the others sleep.</li><li><b>Grabbing pawns</b> instead of developing.</li></ul>
+<p class="tip">See it in action: <b>Famous games → The Opera Game</b>. Morphy develops everything while his opponents don't, and wins in 17 moves.</p>`},
+  {id:'think',title:'How to think before every move',mins:3,body:`
+<p>Most games between beginners are decided by pieces left hanging. A short routine before each move fixes most of that.</p>
+<h4>Step 1: What does my opponent want?</h4>
+<p>Look at the move they just played. What does that piece attack now? Is there a threat to one of your pieces, or to your king?</p>
+<h4>Step 2: Checks, captures, threats</h4>
+<p>Masters look at the most forcing moves first, for <b>both</b> sides:</p>
+<ul><li><b>Checks</b>: can I check the king? Does it lead anywhere?</li><li><b>Captures</b>: can I take something for free, or trade well?</li><li><b>Threats</b>: can I attack something so they must respond?</li></ul>
+<h4>Step 3: The blunder check</h4>
+<p>Before you let go of the piece, ask: <i>after this move, can my opponent take anything for free, or give a dangerous check?</i> This one question will win you more games than anything else.</p>
+<h4>No forcing moves? Improve your worst piece</h4>
+<p>Find the piece doing the least, like a bishop stuck behind its own pawns or a rook still in the corner, and give it a better square.</p>`},
+  {id:'values',title:'What the pieces are worth',mins:2,body:`
+<p>To decide whether a trade is good, players use rough point values:</p>
+<ul><li>Pawn = <b>1</b></li><li>Knight = <b>3</b></li><li>Bishop = <b>3</b> (often a little more than a knight)</li><li>Rook = <b>5</b></li><li>Queen = <b>9</b></li><li>King = priceless: lose it and the game is over</li></ul>
+<p>This is what the <b>+</b> numbers next to the players' names show: how many points ahead someone is in captured pieces.</p>
+<h4>Using the values</h4>
+<ul><li>Giving a knight (3) for a rook (5) wins "the exchange": +2.</li><li>Two bishops together are strong. Keep them if you can.</li><li>When you're ahead, trade pieces (not pawns): the fewer pieces left, the more your extra material counts.</li><li>When you're behind, avoid trades and look for tricks.</li></ul>
+<p class="tip">But points aren't everything. In the <b>Famous games</b> section, the winners often give up lots of points to get at the enemy king.</p>`},
+  {id:'tactics',title:'Four tactics every player should know',mins:4,body:`
+<p>A tactic is a short sequence that wins material or gives checkmate. Almost every tactic is one of these patterns.</p>
+<h4>The fork</h4>
+<p>One piece attacks <b>two</b> things at once, and your opponent can only save one. Knights are the best forkers, because their jump is hard to see coming. A knight check that also hits the queen is called a "royal fork".</p>
+<h4>The pin</h4>
+<p>A piece can't move because something more valuable is behind it. If the piece behind is the king, it's an <b>absolute pin</b>: the piece is not allowed to move at all. Pile up attackers on a pinned piece.</p>
+<h4>The skewer</h4>
+<p>The opposite of a pin: the valuable piece is in front. When it moves out of the way, you take what's behind it. Often done with a rook or bishop checking the king, then capturing the queen behind it.</p>
+<h4>The discovered attack</h4>
+<p>You move one piece out of the way and reveal an attack by another piece behind it. If the revealed attack is a check, the piece you moved can go almost anywhere, even grab the queen. When <b>both</b> pieces give check, it's a <b>double check</b>, and the king must move.</p>
+<p class="tip">Practise: the <b>Puzzles</b> tab is full of these. In <b>Famous games</b>, Réti's Quick Mate ends with a double check.</p>`},
+  {id:'mates',title:'Checkmate patterns to recognise',mins:3,body:`
+<h4>Back-rank mate</h4>
+<p>A king hiding behind its own three pawns has no escape square. A rook or queen landing on the back row is mate. Avoid it by making a little "window" for your king (for example h3 or h6) once the game settles down.</p>
+<h4>Scholar's mate (and how to stop it)</h4>
+<p>1.e4 e5 2.Bc4 Nc6 3.Qh5 Nf6?? 4.Qxf7#. The queen and bishop both hit f7, a weak square next to the king that only the king defends. If you're Black, play <b>...g6</b> or <b>...Qe7</b> when the queen comes to h5, then develop with tempo by attacking the queen.</p>
+<h4>Smothered mate</h4>
+<p>A knight gives check to a king that is boxed in by its own pieces. No one can capture the knight or block, because knights jump.</p>
+<h4>Two pieces working together</h4>
+<p>Most mates need teamwork: a queen protected by another piece next to the king, two rooks on neighbouring rows (the "ladder"), or a bishop and knight covering escape squares like in Légal's Trap.</p>`},
+  {id:'endgame',title:'Endgame basics',mins:3,body:`
+<p>When most pieces are gone, the game changes character.</p>
+<h4>The king becomes a fighter</h4>
+<p>In the opening the king hides. In the endgame it's a strong piece: march it to the centre and use it to attack pawns and support your own.</p>
+<h4>Passed pawns must be pushed</h4>
+<p>A passed pawn has no enemy pawns in front of it or on the files next to it. It threatens to promote, so your opponent must spend pieces stopping it.</p>
+<h4>The rule of the square</h4>
+<p>Can a king catch a running pawn? Imagine a square from the pawn to its promotion row. If the king can step into that square, it catches the pawn.</p>
+<h4>Rooks belong behind passed pawns</h4>
+<p>Behind your own passed pawn, a rook pushes it forward; behind the enemy's, it chases it from behind and gets stronger as the pawn advances.</p>
+<h4>Watch out for stalemate</h4>
+<p>When you're winning, make sure your opponent always has a legal move. If they have no moves and are <b>not</b> in check, it's a draw.</p>`},
+  {id:'masters',title:'Great players and how they played',mins:4,body:`
+<h4>Paul Morphy (USA, 1837–1884)</h4>
+<p>Toured Europe in 1858 and beat the best players there. He understood, before anyone else, that rapid development and open lines win games. Study: <b>The Opera Game</b>.</p>
+<h4>Adolf Anderssen (Germany, 1818–1879)</h4>
+<p>Winner of the first international tournament, London 1851. The master of the "romantic" style, with daring sacrifices to attack the king. Study: <b>The Immortal Game</b> and <b>The Evergreen Game</b>.</p>
+<h4>José Raúl Capablanca (Cuba, 1888–1942)</h4>
+<p>World champion from 1921 to 1927. Famous for simple, clear play and superb endgames. His advice: study endgames first.</p>
+<h4>Bobby Fischer (USA, 1943–2008)</h4>
+<p>Played the "Game of the Century" at 13 and won the world championship in 1972 against Boris Spassky in Reykjavík. Known for deep preparation and fierce will to win. Study: <b>The Game of the Century</b>.</p>
+<h4>Judit Polgár (Hungary, born 1976)</h4>
+<p>Became a grandmaster at 15 and is widely seen as the strongest female player in history. She chose to compete against the best men and beat many world champions.</p>
+<h4>Magnus Carlsen (Norway, born 1990)</h4>
+<p>World champion from 2013 to 2023 and the highest-rated player in history. Known for squeezing wins out of positions that look equal.</p>`}
+];
+const readDone=store.get('readDone',{});
+function openReadings(){
+  const items=READINGS.map((r,i)=>`<button class="item" data-rd="${i}"><div class="t"><b>${esc(r.title)}</b><span>${r.mins} min read</span></div>${readDone[r.id]?'<span class="tag good">✓ Read</span>':''}</button>`).join('');
+  openSheet(`<h2>Readings</h2><p class="note">Short articles about how good players think. Read one, then try the ideas in a game.</p><div class="list">${items}</div>`,'readings');
+  $('#sheet').onclick=e=>{ const b=e.target.closest('[data-rd]'); if(b) openReading(+b.dataset.rd); };
+}
+function openReading(i){
+  const r=READINGS[i]; readDone[r.id]=1; store.set('readDone',readDone);
+  const next=READINGS[i+1];
+  openSheet(`<div class="article"><p class="note">${r.mins} min read</p><h2>${esc(r.title)}</h2>${r.body}</div><div class="controls" style="margin-top:16px"><button class="btn" id="rdBack">${ICON.list}All readings</button>${next?`<button class="btn primary" id="rdNext">Next: ${esc(next.title)}</button>`:''}</div>`,'reading');
+  $('#sheet').scrollTop=0;
+  $('#sheet').onclick=e=>{ if(e.target.closest('#rdBack')) openReadings(); else if(e.target.closest('#rdNext')) openReading(i+1); };
+}
+// Read-only handle for automated tests.
+Object.defineProperty(window,'__tc',{value:{FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
 
 /* ================= family (online) ================= */
 /* Family games over Firebase Realtime Database.
@@ -1868,6 +2127,7 @@ function renderStrips(){
     else { info.w={name:'White',av:pimg('w')}; info.b={name:'Black',av:pimg('b')}; }
   } else if(S.tab==='openings'){ const c=s.op?s.op.side:'w', o=c==='w'?'b':'w'; info[c]={name:'You',av:pimg(c)}; info[o]={name:'Opening book',av:'📖'}; }
   else if(S.tab==='puzzles'){ const c=s.side||'w', o=c==='w'?'b':'w'; info[c]={name:'You',av:pimg(c)}; info[o]={name:'Defender',av:'🛡️'}; }
+  else if(S.tab==='learn'&&s.fg){ info.w={name:s.fg.white,sub:'White',av:pimg('w')}; info.b={name:s.fg.black,sub:'Black',av:pimg('b')}; }
   else if(S.tab==='learn'){ info.w={name:'You',av:pimg('w'),nocaps:true}; info.b={name:'Coach',sub:'Learn to play',av:'🎓',nocaps:true}; }
   else {
     const av=id=>{ const u=Fam.avatars&&Fam.avatars[id]; return u?`<img src="${esc(u)}" alt="">`:'👤'; };
@@ -1937,7 +2197,23 @@ function renderPanel(){
       h+=`<div class="controls"><button class="btn" data-act="pzlist">${ICON.list}List</button><button class="btn" data-act="pzclue" ${s.solved?'disabled':''}>Clue</button><button class="btn" data-act="hint" ${s.solved||s.checking||S.busy?'disabled':''}>${ICON.bulb}Hint</button><button class="btn" data-act="pzretry">${ICON.retry}Retry</button><button class="btn ${s.solved?'primary':''}" data-act="pznext">Next</button></div>`;
     }
   } else if(S.tab==='learn'){
-    if(!s.les){ const n=LESSONS.filter(l=>learnDone[l.id]).length; h+=`<div class="card"><h3>Learn to play chess</h3><p>New to chess? ${LESSONS.length} short lessons show how each piece moves, what check and checkmate mean, and the special moves. Finished ${n} of ${LESSONS.length}.</p></div><div class="controls"><button class="btn primary" data-act="lsnext">Start learning</button><button class="btn" data-act="lslist">${ICON.list}All lessons</button></div>`; }
+    if(s.fg){
+      const g=s.fg, n=s.game.moves.length, end=n===g.uci.length, note=n?g.noteAt[n-1]:'';
+      const last=n?`<b>${Math.ceil(n/2)}${n%2?'.':'...'} ${esc(g.markAt[n-1]||g.sans[n-1])}</b> `:'';
+      h+=`<div class="card"><h3>${esc(g.title)} <span style="font-size:12px;color:var(--muted);font-family:Inter">${esc(g.where)}</span></h3>`;
+      h+=n===0?`<p>${esc(g.about)}</p><p style="margin-top:8px">${s.guess?`<b>Guess mode is on.</b> At the key moments, find ${esc(g.heroName)}'s move yourself. Tap ▶ to start.`:'Tap ▶ to play through the game.'}</p>`
+        :`<p>${last}${note?esc(note):''}</p>`;
+      if(end) h+=`<p style="margin-top:8px"><b>End of the game.</b>${s.asked?` You found ${s.right} of ${s.asked} key moves.`:''}</p>`;
+      h+=`<div class="feedback ${s.msgType}">${esc(s.msg)}</div></div>`;
+      h+=`<div class="moves">${movesHTML(s)}</div>`;
+      h+=`<div class="controls"><button class="btn" data-act="fglist">${ICON.list}Games</button><button class="btn" data-act="fgstart" ${n?'':'disabled'} aria-label="Back to start">⏮</button><button class="btn" data-act="fgprev" ${n&&!s.checking?'':'disabled'} aria-label="Previous move">${ICON.prev}</button>${s.awaitGuess?`<button class="btn" data-act="hint" ${s.checking?'disabled':''}>${ICON.bulb}Hint</button><button class="btn" data-act="fgnext" ${s.checking?'disabled':''}>Show me</button>`:`<button class="btn primary" data-act="fgnext" ${end?'disabled':''} aria-label="Next move">${ICON.next}</button>`}<button class="btn ${s.guess?'primary':''}" data-act="fgguess">Guess ${s.guess?'on':'off'}</button></div>`;
+    }
+    else if(!s.les){ const n=LESSONS.filter(l=>learnDone[l.id]).length, nf=FAMOUS.filter(g=>fgDone[g.id]).length, nr=READINGS.filter(r=>readDone[r.id]).length;
+      h+=`<div class="card"><h3>Learn chess</h3><p>Start with the basics, then learn from the masters.</p></div><div class="list learnhub">
+        <button class="item" data-act="lsnext"><div class="t"><b>🎓 Lessons for beginners</b><span>How the pieces move, check, checkmate and special moves · ${n} of ${LESSONS.length} done</span></div></button>
+        <button class="item" data-act="fglist"><div class="t"><b>🏆 Famous games</b><span>Replay games by Morphy, Anderssen, Fischer and more, and guess their moves · ${nf} of ${FAMOUS.length} seen</span></div></button>
+        <button class="item" data-act="rdlist"><div class="t"><b>📖 Readings</b><span>Short articles: opening rules, tactics, checkmates, endgames, great players · ${nr} of ${READINGS.length} read</span></div></button>
+      </div>`; }
     else {
       const L=s.les, st=learnStep(s), li=LESSONS.indexOf(L), last=li===LESSONS.length-1;
       let dots=''; for(let i=0;i<L.steps.length;i++) dots+=`<i class="${(i<s.step||s.done)?'done':(i===s.step?'now':'')}"></i>`;
@@ -1974,7 +2250,7 @@ function setView(v){
 $('#panel').addEventListener('click',e=>{
   const b=e.target.closest('[data-act],[data-i],[data-react]'); if(!b) return; ac();
   if(b.dataset.react){ Fam.react(b.dataset.react); return; }
-  if(b.dataset.i){ setView(+b.dataset.i); return; }
+  if(b.dataset.i){ if(S.tab==='learn'&&sessions.learn.fg){ if(!sessions.learn.checking) fgGoto(sessions.learn,+b.dataset.i); return; } setView(+b.dataset.i); return; }
   const s=cur();
   switch(b.dataset.act){
     case 'new': openNewGame(); break;
@@ -1992,6 +2268,12 @@ $('#panel').addEventListener('click',e=>{
     case 'pzretry': startPuzzle(s.p); break;
     case 'pznext': { const order=PUZ_ORDER; let i=s.idx<0?-1:order.indexOf(s.p); let nxt=order.find((p,k)=>k>i&&!puzSolved[p.i])||order[(i+1)%order.length]; startPuzzle(nxt); break; }
     case 'lslist': openLessons(); break;
+    case 'fglist': openFamous(); break;
+    case 'rdlist': openReadings(); break;
+    case 'fgnext': fgNext(s); break;
+    case 'fgprev': fgGoto(s,s.game.moves.length-1); break;
+    case 'fgstart': fgGoto(s,0); break;
+    case 'fgguess': s.guess=!s.guess; store.set('fgGuess',s.guess); if(s.checking){ renderAll(); break; } if(!s.guess){ s.awaitGuess=false; s.msg=''; } else fgPrompt(s); S.hint=null; renderAll(); break;
     case 'lsretry': startLesson(s.les); break;
     case 'lsnext': { const i=s.les?LESSONS.indexOf(s.les):-1; startLesson(LESSONS.find((l,k)=>k>i&&!learnDone[l.id])||LESSONS[(i+1)%LESSONS.length]); break; }
     case 'lsplay': startPlay('cpu','w',0); toast('Your first game against Twig. Good luck!'); break;
