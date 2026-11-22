@@ -172,6 +172,8 @@ nav.tabs button.on{color:var(--accent2);background:rgba(227,165,90,.1)}
 .item span{font-size:12.5px;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .item .tag{font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(255,230,190,.08);color:var(--muted);flex:none}
 .item .tag.good{background:rgba(134,184,107,.18);color:var(--good)}
+.item .rm{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--muted);background:rgba(255,230,190,.06);border:1px solid var(--line);font-size:13px;cursor:pointer}
+.item .rm:active{background:rgba(222,80,60,.25);color:#fff}
 .item .go{flex:none;padding:8px 12px;border-radius:10px;background:linear-gradient(180deg,#e9b06a,#c98a3f);color:#2a1606;font-weight:600;font-size:13px}
 .toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 2px;border-bottom:1px solid var(--line);font-size:15px}
 .sw{width:46px;height:28px;border-radius:14px;background:#3a2c22;position:relative;transition:background .2s;flex:none}
@@ -1736,7 +1738,11 @@ const Fam={
   resign(){ const s=sessions.family; if(!s.myColor||s.over||s.status!=='active') return; s.resigned=s.myColor; this.checkOver(); this.saveGame(); this.broadcast(); renderAll(); },
   offerDraw(){ const s=sessions.family; if(!s.myColor||s.over||s.status!=='active') return; s.drawOffers[s.myColor]=s.game.moves.length; this.checkOver(); this.saveGame(); this.broadcast(); renderAll(); if(!s.over) toast('Draw offered'); },
   react(e){ const s=sessions.family; s.react={e,n:((s.react&&s.react.n)||0)+1}; this.broadcast(); floatEmoji(e,s.myColor||'w'); },
-  cancel(){ const s=sessions.family; const all=this.games(); delete all[s.gid]; store.set('peerGames',all); this.leave(); s.gid=null; store.set('peerLast',null); renderAll(); },
+  cancel(){ const s=sessions.family; const all=this.games(); delete all[s.gid]; store.set('peerGames',all); this.leave(); s.gid=null; store.set('peerLast',null);
+    Object.assign(s,{white:null,black:null,creator:null,status:'open',resigned:null,drawOffers:{w:null,b:null},over:null,view:null,myColor:null,orientation:'w'});
+    s.game=newGame(); s.eng.loadUci(START,[]);
+    if(S.tab==='family'){ renderLabels(); renderPieces({instant:true}); }
+    renderAll(); },
   forget(gid){ const all=this.games(); delete all[gid]; store.set('peerGames',all); }
 };
 function askName(after){
@@ -2045,11 +2051,19 @@ function openJoin(){
   $('#joinGo').onclick=go; $('#joinIn').onkeydown=e=>{ if(e.key==='Enter') go(); };
   if(canPaste) $('#joinPaste').onclick=()=>{ navigator.clipboard.readText().then(t=>{ $('#joinIn').value=t||''; if(parseInvite(t)) go(); }).catch(()=>{ $('#joinIn').focus(); toast('Press and hold the box, then tap Paste',3000); }); };
 }
-function openLobby(){ if(Fam.state==='ready'&&!Fam.myName){ askName(openLobby); return; } openSheet('<div id="lobbyBody"></div>','lobby'); renderLobby(); }
+function openLobby(){ Fam.lobbyPick=false; if(Fam.state==='ready'&&!Fam.myName){ askName(openLobby); return; } openSheet('<div id="lobbyBody"></div>','lobby'); renderLobby(); }
 function renderLobby(){
   const body=$('#lobbyBody'); if(!body) return;
   const s=sessions.family;
   if(Fam.state!=='ready'){ body.innerHTML=`<h2>Play a friend</h2><p class="note">${Fam.state==='loading'?'Getting ready…':esc(Fam.textOff)}</p>`; return; }
+  // The colour picker is a lobby "mode", so the background refreshes (reconnect attempts every few
+  // seconds) redraw the picker instead of wiping it back to the lobby.
+  if(Fam.lobbyPick){
+    body.innerHTML=`<h2>New game</h2><h4>You play as</h4><div class="colors" id="fc"><button data-c="w"><img src="${IMG.wK}" alt="">White</button><button data-c="r"><img src="${IMG.wN}" alt="">Random</button><button data-c="b"><img src="${IMG.bK}" alt="">Black</button></div><div class="row"><button class="btn" id="fcBack">Back</button></div>`;
+    $('#fc').onclick=e=>{ const b=e.target.closest('button'); if(b){ Fam.lobbyPick=false; Fam.create(b.dataset.c); } };
+    $('#fcBack').onclick=()=>{ Fam.lobbyPick=false; renderLobby(); };
+    return;
+  }
   let h=`<h2>Play a friend</h2>`;
   if(s.gid&&s.status==='open'&&Fam.role==='host'){
     const link=Fam.link(s.gid);
@@ -2070,7 +2084,7 @@ function renderLobby(){
       const mv=Array.isArray(g.moves)?g.moves.length:0; const turn=mv%2===0?'w':'b';
       const st=g.status==='over'?'Finished':(g.status==='open'?'Waiting for them to join':(turn===myC?'Your move':'Their move'));
       const isCur=s.gid===g.gid;
-      return `<div class="item"><div class="av">${myC==='b'?'♚':'♔'}</div><div class="t"><b>vs ${esc(opp?oppName:'(not joined yet)')}</b><span>${st} · ${Math.ceil(mv/2)} moves</span></div>${isCur?'<span class="tag good">Open</span>':`<button class="go" data-resume="${esc(g.gid)}">${g.status==='over'?'View':'Resume'}</button>`}</div>`;
+      return `<div class="item"><div class="av">${myC==='b'?'♚':'♔'}</div><div class="t"><b>vs ${esc(opp?oppName:'(not joined yet)')}</b><span>${st} · ${Math.ceil(mv/2)} moves</span></div>${isCur?'<span class="tag good">Open</span>':`<button class="go" data-resume="${esc(g.gid)}">${g.status==='over'?'View':'Resume'}</button>`}<button class="rm" data-forget="${esc(g.gid)}" aria-label="Remove this game" title="Remove this game">✕</button></div>`;
     }).join('')+'</div>';
   }
   h+=`<h4>You</h4><div class="item"><div class="av">👤</div><div class="t"><b>${esc(Fam.myName||'Player')}</b><span>Your name in games</span></div><button class="tag" id="lbName">Change</button></div>`;
@@ -2083,11 +2097,14 @@ function renderLobby(){
   if($('#lbJoin')) $('#lbJoin').onclick=openJoin;
   if($('#lbCancel')) $('#lbCancel').onclick=()=>{ Fam.cancel(); renderLobby(); };
   if($('#lbName')) $('#lbName').onclick=()=>askName(openLobby);
-  if($('#lbNew')) $('#lbNew').onclick=()=>{
-    body.innerHTML=`<h2>New game</h2><h4>You play as</h4><div class="colors" id="fc"><button data-c="w"><img src="${IMG.wK}" alt="">White</button><button data-c="r"><img src="${IMG.wN}" alt="">Random</button><button data-c="b"><img src="${IMG.bK}" alt="">Black</button></div><div class="row"><button class="btn" id="fcBack">Back</button></div>`;
-    $('#fc').onclick=e=>{ const b=e.target.closest('button'); if(b) Fam.create(b.dataset.c); };
-    $('#fcBack').onclick=renderLobby;
-  };
+  if($('#lbNew')) $('#lbNew').onclick=()=>{ Fam.lobbyPick=true; renderLobby(); };
+  body.querySelectorAll('[data-forget]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.forget, g=Fam.games()[id], done=g&&g.status==='over';
+    confirmSheet('Remove this game?',done?'It will be deleted from this phone.':'It will be deleted from this phone. Your friend won\'t be told, but they can remove it on their phone too.','Remove',()=>{
+      if(id===s.gid) Fam.cancel(); else Fam.forget(id);
+      toast('Game removed'); openLobby();
+    });
+  });
   body.querySelectorAll('[data-resume]').forEach(b=>b.onclick=()=>{ const g=Fam.games()[b.dataset.resume]; if(g){ closeSheet(); Fam.enter(g,g.role,false); } });
 }
 
