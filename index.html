@@ -1852,7 +1852,7 @@ function renderPanel(){
   } else {
     if(Fam.state==='loading') h+=`<div class="card"><h3>Family games</h3><p>Connecting…</p></div>`;
     else if(Fam.state==='off') h+=`<div class="card"><h3>Family games</h3><p>${esc(Fam.textOff)}</p></div><div class="controls"><button class="btn" data-act="tabplay">Play the computer instead</button></div>`;
-    else if(!s.gid) h+=`<div class="card"><h3>Play with your family</h3><p>${esc(Fam.textIntro)}</p></div><div class="controls"><button class="btn primary" data-act="lobby">${ICON.users}${esc(Fam.lobbyLabel)}</button></div>`;
+    else if(!s.gid) h+=`<div class="card"><h3>Play with your family</h3><p>${esc(Fam.textIntro)}</p></div><div class="controls"><button class="btn primary" data-act="lobby">${ICON.users}${esc(Fam.lobbyLabel)}</button><button class="btn" data-act="famjoin">Join with code</button></div>`;
     else {
       let st;
       if(s.status==='open') st=`<b>${esc(Fam.waitText())}</b>`;
@@ -1900,6 +1900,7 @@ $('#panel').addEventListener('click',e=>{
     case 'lsnext': { const i=s.les?LESSONS.indexOf(s.les):-1; startLesson(LESSONS.find((l,k)=>k>i&&!learnDone[l.id])||LESSONS[(i+1)%LESSONS.length]); break; }
     case 'lsplay': startPlay('cpu','w',0); toast('Your first game against Twig. Good luck!'); break;
     case 'lobby': openLobby(); break;
+    case 'famjoin': openJoin(); break;
     case 'tabplay': switchTab('play'); break;
     case 'resign': confirmSheet('Resign this game?','Your opponent will be told you resigned.','Resign',()=>Fam.resign()); break;
     case 'draw': Fam.offerDraw(); break;
@@ -2015,6 +2016,28 @@ function showGameOver(s){
   if(isPlay){ $('#goAgain').onclick=()=>{ closeSheet(); startPlay(s.kind,s.kind==='cpu'?(s.human==='w'?'b':'w'):'w',s.level); }; $('#goNew').onclick=()=>{ closeSheet(); openNewGame(); }; }
   else $('#goLobby').onclick=()=>{ openLobby(); };
 }
+// Join a game from inside the app by pasting the invite link (or just its code).
+// Needed on iPhone, where tapping a link always opens Safari instead of the home-screen app.
+function parseInvite(t){
+  t=String(t||'').trim(); const m=t.match(/[?&]g=([a-z0-9]{6,24})/i);
+  if(m) return m[1].toLowerCase();
+  return /^[a-z0-9]{8}$/i.test(t)?t.toLowerCase():'';
+}
+function joinGame(g){
+  const rec=Fam.games()[g];
+  if(rec) Fam.enter(rec,rec.role,false); else Fam.enter({gid:g,white:null,black:null,creator:null,moves:[],status:'open'},'guest',false);
+  if(!Fam.myName) askName();
+}
+function openJoin(){
+  if(Fam.state!=='ready'){ toast(Fam.state==='loading'?'Getting ready… try again in a moment':Fam.textOff,3500); return; }
+  const canPaste=!!(navigator.clipboard&&navigator.clipboard.readText);
+  openSheet(`<h2>Join a game</h2><p class="note">Copy the invite link you were sent (from WhatsApp, a text or email) and paste it here.</p>
+  <input id="joinIn" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the invite link or code" style="width:100%;margin-top:12px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;font-size:16px">
+  <div class="row">${canPaste?'<button class="btn" id="joinPaste">Paste</button>':''}<button class="btn primary" id="joinGo">Join game</button></div>`,'join');
+  const go=()=>{ const g=parseInvite($('#joinIn').value); if(!g){ toast('That doesn\'t look like an invite link. Copy the whole link and try again.',3500); return; } closeSheet(); joinGame(g); };
+  $('#joinGo').onclick=go; $('#joinIn').onkeydown=e=>{ if(e.key==='Enter') go(); };
+  if(canPaste) $('#joinPaste').onclick=()=>{ navigator.clipboard.readText().then(t=>{ $('#joinIn').value=t||''; if(parseInvite(t)) go(); }).catch(()=>{ $('#joinIn').focus(); toast('Press and hold the box, then tap Paste',3000); }); };
+}
 function openLobby(){ if(Fam.state==='ready'&&!Fam.myName){ askName(openLobby); return; } openSheet('<div id="lobbyBody"></div>','lobby'); renderLobby(); }
 function renderLobby(){
   const body=$('#lobbyBody'); if(!body) return;
@@ -2026,10 +2049,11 @@ function renderLobby(){
     h+=`<div class="card"><h3>Your invite link</h3><p style="word-break:break-all;color:var(--accent2);font-size:14px;margin:6px 0 10px">${esc(link)}</p>
       <div class="row" style="margin-top:0"><button class="btn primary" id="lbShare">Send link</button><button class="btn" id="lbCopy">Copy</button></div>
       <p class="note" style="margin-top:10px">Send it by WhatsApp, text or email. The game starts as soon as they open it. <b>Keep this app open</b> until they join.</p>
+      <p class="note" style="margin-top:6px">Got the app on their phone? They can open it, go to <b>Family → Join with code</b> and paste the link.</p>
       <p class="note" style="margin-top:6px">${Fam.netOk?'🟢 Ready and waiting':'🟡 Connecting…'}</p></div>`;
     h+=`<div class="row"><button class="btn" id="lbCancel">Cancel this game</button></div>`;
   } else {
-    h+=`<div class="row" style="margin-top:0"><button class="btn primary" id="lbNew">${ICON.plus}New game & invite link</button></div>`;
+    h+=`<div class="row" style="margin-top:0"><button class="btn primary" id="lbNew">${ICON.plus}New game & invite link</button><button class="btn" id="lbJoin">Join with code</button></div>`;
   }
   const all=Fam.games(); const list=Object.values(all).filter(g=>g&&g.gid&&g.gid!==(s.status==='open'?s.gid:'')).sort((a,b)=>(b.updated||0)-(a.updated||0)).slice(0,8);
   if(list.length){
@@ -2047,8 +2071,9 @@ function renderLobby(){
   body.innerHTML=h;
   const link=s.gid?Fam.link(s.gid):'';
   const copy=()=>{ (navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(()=>toast('Link copied')).catch(()=>toast('Press and hold the link to copy it')); };
-  if($('#lbShare')) $('#lbShare').onclick=()=>{ if(navigator.share){ navigator.share({title:'Timber Chess',text:`${Fam.myName||'I'} wants to play chess with you. Tap to join:`,url:link}).catch(()=>{}); } else copy(); };
+  if($('#lbShare')) $('#lbShare').onclick=()=>{ if(navigator.share){ navigator.share({title:'Timber Chess',text:`${Fam.myName||'I'} wants to play chess with you. Tap to join (or copy this link, open Timber Chess, go to Family → Join with code and paste it):`,url:link}).catch(()=>{}); } else copy(); };
   if($('#lbCopy')) $('#lbCopy').onclick=copy;
+  if($('#lbJoin')) $('#lbJoin').onclick=openJoin;
   if($('#lbCancel')) $('#lbCancel').onclick=()=>{ Fam.cancel(); renderLobby(); };
   if($('#lbName')) $('#lbName').onclick=()=>askName(openLobby);
   if($('#lbNew')) $('#lbNew').onclick=()=>{
