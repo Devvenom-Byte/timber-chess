@@ -17,7 +17,7 @@ USING IT
 - To make it a real app icon: on iPhone open the link in Safari, tap Share > "Add to Home Screen".
   On Android, Chrome shows "Install app" (or Menu > Add to Home screen).
 - To play a friend: Family tab > Invite a friend > New game > Send link.
-  Keep the app open until they join. Both players need to be online at the same time.
+  They can join any time: games are saved online, so you can play live together or take turns whenever you like.
 - Computer, openings and puzzles work offline once the app has been opened once.
 
 UPDATING

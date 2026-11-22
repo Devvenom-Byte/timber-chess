@@ -1496,72 +1496,66 @@ function learnAfter(s){
 }
 
 /* ================= family (online) ================= */
-const PEER_PREFIX='timberchess-v1-';
-function loadPeerLib(){
-  if(window.Peer) return Promise.resolve(true);
-  const urls=['https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js','https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'];
-  return new Promise(res=>{
-    const tryAt=i=>{
-      if(i>=urls.length) return res(false);
-      const sc=document.createElement('script'); sc.src=urls[i]; sc.async=true;
-      sc.onload=()=>res(!!window.Peer); sc.onerror=()=>{ sc.remove(); tryAt(i+1); };
-      document.head.appendChild(sc);
-    };
-    tryAt(0);
-  });
-}
+/* Family games over Firebase Realtime Database.
+   Each game is a small JSON document at /games/<code>. Players write moves, seats, names, resignations
+   and draw offers there with plain HTTPS requests, and keep a live stream open (Server-Sent Events):
+   Firebase pushes every change to both phones within a fraction of a second. If a phone is asleep or
+   offline, changes wait in the database and the phone catches up when it comes back, so games can't get
+   stuck and the inviter doesn't need the app open. The database's security rules (Firebase console)
+   block listing games, changing moves, stealing seats, un-resigning and any non-chess data. */
+const FB_DB='https://timber-chess-default-rtdb.europe-west1.firebasedatabase.app';
 const Fam={
-  state:'loading', myId:null, myName:'', names:{}, avatars:{}, oppOnline:false, lastReact:{},
-  peer:null, conns:new Map(), role:null, ctok:0, timers:[], netOk:false, hostSeen:false,
+  state:'ready', myId:null, myName:'', names:{}, avatars:{}, oppOnline:false, lastReact:{},
+  role:null, ctok:0, timers:[], netOk:false, hostSeen:false, notFound:false,
+  es:null, mirror:undefined, gotFirst:false, lastEvent:0, skew:0, pushing:false, pushAgain:false, claiming:false,
   textOff:'Online play needs an internet connection. You can still play the computer, openings and puzzles.',
-  textIntro:'Start a game and send the invite link to anyone. When they open it on their phone, the game begins. No accounts needed.',
+  textIntro:'Start a game and send the invite link to anyone. When they open it, the game begins. No accounts needed, and you don\'t both need to be online at once.',
   lobbyLabel:'Invite a friend',
   waitText(){
-    if(this.role==='guest') return this.hostSeen?'Joining…':'Connecting to the game… (the person who invited you needs the app open)';
+    if(this.role==='guest') return this.notFound?'Game not found. Ask them for a new invite link (they may need to close the app fully and reopen it to update).':'Connecting to the game…';
     return 'Waiting for your friend to open the invite link…';
   },
-  async init(){
+  init(){
     this.myId=store.get('cid',null);
     if(!this.myId){ this.myId='c'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); store.set('cid',this.myId); }
     this.myName=store.get('myName','');
     this.names[this.myId]=this.myName;
+    // Games saved by the old peer-to-peer version can't continue (they were never stored online).
+    const all=this.games(); let dropped=false; for(const k in all){ if(!all[k]||all[k].v!==2){ delete all[k]; dropped=true; } } if(dropped) store.set('peerGames',all);
     const q=new URLSearchParams(location.search);
     const g=(q.get('g')||'').replace(/[^a-z0-9]/gi,'').slice(0,24).toLowerCase();
-    if(g){ switchTab('family',true); }
-    const ok=await loadPeerLib();
-    this.state=ok?'ready':'off';
-    if(ok&&g){
+    if(g){
+      switchTab('family',true);
       const rec=this.games()[g];
-      if(rec) this.enter(rec,rec.role,false); else this.enter({gid:g,white:null,black:null,creator:null,moves:[],status:'open'},'guest',false);
+      if(rec) this.enter(rec,rec.role,false); else this.enter({gid:g},'guest',false);
       if(!this.myName) askName();
-    } else if(ok){
+    } else {
       const last=store.get('peerLast',null); const rec=last&&this.games()[last];
-      if(rec&&rec.status!=='over'&&Date.now()-(rec.updated||0)<3*86400000) this.enter(rec,rec.role,true);
+      if(rec&&rec.status!=='over'&&Date.now()-(rec.updated||0)<14*86400000) this.enter(rec,rec.role,true);
     }
-    document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') this.wake(); });
-    setInterval(()=>this.beat(),4000);
+    document.addEventListener('visibilitychange',()=>{ this.presence(); if(document.visibilityState==='visible') this.wake(); });
     window.addEventListener('online',()=>this.wake());
+    setInterval(()=>this.tick(),15000);
     refreshFamilyUI();
   },
-  wake(){
-    const s=sessions.family; if(!s.gid||this.state!=='ready') return;
-    if(!this.peer||this.peer.destroyed){ this.connect(); return; }
-    if(this.peer.disconnected){ try{ this.peer.reconnect(); }catch(e){ this.connect(); } return; }
-    if(this.role==='guest'&&!this.openConns().length) this.dial();
+  // Every 15 s: "I'm here" note, check the stream is still alive, refresh the opponent's online dot.
+  tick(){
+    const s=sessions.family; if(!s.gid) return;
+    this.presence();
+    if(!document.hidden&&(!this.es||this.es.readyState===2||Date.now()-this.lastEvent>75000)) this.listen();
+    const was=this.oppOnline; this.updOnline(); if(was!==this.oppOnline) refreshFamilyUI();
   },
-  beat(){
-    const now=Date.now();
-    for(const [k,c] of this.conns){
-      if(!c.open) continue;
-      if(now-(c.last||now)>13000){ this.conns.delete(k); try{ c.conn.close(); }catch(e){} this.updOnline(); refreshFamilyUI(); if(this.role==='guest') this.dial(); continue; }
-      this.send(c.conn,{t:'ping'});
-    }
+  // Back in the app (or back online): reopen the stream if it went quiet, catch up and resend anything pending.
+  wake(){
+    const s=sessions.family; if(!s.gid) return;
+    if(!this.es||this.es.readyState===2||Date.now()-this.lastEvent>35000) this.listen();
+    this.pushLocal();
   },
   games(){ return store.get('peerGames',{})||{}; },
   saveGame(){
     const s=sessions.family; if(!s.gid) return;
     const all=this.games();
-    all[s.gid]={...this.state4(),role:this.role,names:this.seatNames(),updated:Date.now(),created:s.created||Date.now()};
+    all[s.gid]={...this.state4(),v:2,role:this.role,names:this.seatNames(),updated:Date.now(),created:s.created||Date.now()};
     const keys=Object.keys(all).sort((a,b)=>(all[b].updated||0)-(all[a].updated||0));
     for(const k of keys.slice(12)) delete all[k];
     store.set('peerGames',all); store.set('peerLast',s.gid);
@@ -1570,128 +1564,139 @@ const Fam={
   nm(id){ if(!id) return 'Waiting…'; if(id===this.myId) return 'You'; return this.names[id]||'Friend'; },
   oppId(){ const s=sessions.family; return s.myColor==='w'?s.black:(s.myColor==='b'?s.white:null); },
   player(c){ const s=sessions.family; return c==='w'?s.white:s.black; },
-  hostId(gid){ return PEER_PREFIX+gid; },
   link(gid){ return location.origin+location.pathname+'?g='+gid; },
   lobbyPresence(){},
   newGid(){ const a='abcdefghjkmnpqrstuvwxyz23456789'; let s=''; for(let i=0;i<8;i++) s+=a[(Math.random()*a.length)|0]; return s; },
   create(colorPref){
     const me=this.myId; const c=colorPref==='r'?(Math.random()<.5?'w':'b'):colorPref;
     const g={gid:this.newGid(),white:c==='w'?me:null,black:c==='b'?me:null,creator:me,moves:[],status:'open',resigned:null,drawOffers:{w:null,b:null},created:Date.now()};
-    this.enter(g,'host',false); openLobby();
+    this.enter(g,'host',false);
+    const doc={creator:me,v:2,created:{'.sv':'timestamp'},names:{[me]:this.myName||'Player'}}; doc[c==='w'?'white':'black']=me;
+    this.put('',doc).then(r=>{ if(r!=='ok'){ toast(r==='neterr'?'No internet connection. Check it and try again.':'Couldn\'t create the game. Please try again.',3500); this.cancel(); openLobby(); } });
+    openLobby();
   },
   enter(g,role,quiet){
     this.leave();
     const s=sessions.family;
     Object.assign(s,{gid:g.gid,white:null,black:null,creator:g.creator||null,status:'open',resigned:null,drawOffers:{w:null,b:null},over:null,view:null,react:null,created:g.created||Date.now()});
     s.game=newGame(); s.eng.loadUci(START,[]);
-    this.role=role; this.hostSeen=false;
+    this.role=role; this.hostSeen=false; this.notFound=false; this.lastReact={}; this.gotFirst=false; this.mirror=undefined;
     if(g.names) for(const k in g.names){ if(k!==this.myId&&typeof g.names[k]==='string') this.names[k]=g.names[k]; }
     this.ready2=false;
-    this.merge({...g,status:undefined},'db');
+    this.merge({...g,moves:g.moves||[],drawOffers:g.drawOffers||{},status:undefined},'db');
     if(g.status==='over'||g.status==='active') { if(s.white&&s.black) s.status='active'; }
     s.myColor=s.white===this.myId?'w':(s.black===this.myId?'b':null);
     s.orientation=s.myColor||'w';
     this.ready2=true;
     this.saveGame();
-    this.connect();
+    this.listen();
     if(!quiet&&S.tab!=='family') switchTab('family',true);
     else if(S.tab==='family'){ renderLabels(); renderPieces({instant:true}); renderAll(); }
     if(!quiet&&sheetKind==='lobby'&&role!=='host') closeSheet();
   },
   leave(){
     this.ctok++; for(const t of this.timers) clearTimeout(t); this.timers=[];
-    for(const {conn} of this.conns.values()){ try{ conn.close(); }catch(e){} }
-    this.conns.clear();
-    if(this.peer){ try{ this.peer.destroy(); }catch(e){} this.peer=null; }
-    this.oppOnline=false; this.netOk=false;
+    this.stopStream();
+    this.oppOnline=false; this.netOk=false; this.mirror=undefined;
   },
   later(fn,ms){ const tok=this.ctok; this.timers.push(setTimeout(()=>{ if(tok===this.ctok) fn(); },ms)); },
-  mkPeer(id){
-    // STUN finds each phone's public address; TURN (Metered free plan) relays moves when phones
-    // can't reach each other directly, e.g. on mobile data. The old PeerJS TURN servers no longer exist.
-    // TURN credential is public by design (client-side app); the free plan has no card, so it can't bill.
-    const opts={debug:0,config:{iceServers:[
-      {urls:['stun:stun.l.google.com:19302','stun:stun.relay.metered.ca:80']},
-      {urls:['turn:global.relay.metered.ca:80','turn:global.relay.metered.ca:80?transport=tcp','turn:global.relay.metered.ca:443','turns:global.relay.metered.ca:443?transport=tcp'],
-       username:'d1b3a998b0fbf660b42435cd',credential:'9x5XOHXaA91lyaAP'}
-    ]}};
-    return id?new window.Peer(id,opts):new window.Peer(opts);
+  url(p){ return FB_DB+'/games/'+sessions.family.gid+(p?'/'+p:'')+'.json'; },
+  // One write. 'ok', 'denied' (the rules refused it: seat taken, move already there…) or 'neterr'.
+  async put(p,val){
+    if(!sessions.family.gid) return 'neterr';
+    try{
+      const r=await fetch(this.url(p),{method:'PUT',body:JSON.stringify(val)});
+      if(r.ok){ if(p.startsWith('seen/')){ try{ const t=await r.json(); if(typeof t==='number'&&t>0) this.skew=t-Date.now(); }catch(e){} } return 'ok'; }
+      return (r.status===401||r.status===403)?'denied':'neterr';
+    }catch(e){ return 'neterr'; }
   },
-  connect(){
-    const s=sessions.family; if(!s.gid||this.state!=='ready') return;
-    const tok=this.ctok;
-    if(this.peer){ try{ this.peer.destroy(); }catch(e){} this.peer=null; }
-    let p;
-    try{ p=this.mkPeer(this.role==='host'?this.hostId(s.gid):null); }catch(e){ this.later(()=>this.connect(),4000); return; }
-    this.peer=p;
-    p.on('open',()=>{ if(tok!==this.ctok) return; this.netOk=true; if(this.role==='guest') this.dial(); refreshFamilyUI(); });
-    p.on('connection',conn=>{ if(tok!==this.ctok) return; this.wire(conn); });
-    p.on('disconnected',()=>{ if(tok!==this.ctok) return; this.netOk=false; refreshFamilyUI(); this.later(()=>{ if(p.destroyed) return this.connect(); try{ p.reconnect(); }catch(e){ this.connect(); } },2000); });
-    p.on('error',e=>{
-      if(tok!==this.ctok) return;
-      const t=e&&e.type;
-      if(t==='peer-unavailable'){ this.hostSeen=false; refreshFamilyUI(); this.later(()=>this.dial(),3500); return; }
-      if(t==='unavailable-id'){ this.later(()=>this.connect(),3000); return; }
-      this.netOk=false; refreshFamilyUI(); this.later(()=>this.connect(),5000);
-    });
+  // Live stream of the game document. Firebase sends the whole game first, then each change.
+  stopStream(){ if(this.es){ try{ this.es.close(); }catch(e){} this.es=null; } },
+  listen(){
+    const s=sessions.family; if(!s.gid) return;
+    const tok=this.ctok; this.stopStream();
+    let es; try{ es=new EventSource(this.url('')); }catch(e){ this.later(()=>this.listen(),3000); return; }
+    this.es=es; this.lastEvent=Date.now();
+    const on=(type,patch)=>es.addEventListener(type,ev=>{ if(tok!==this.ctok||this.es!==es) return; this.lastEvent=Date.now(); let d; try{ d=JSON.parse(ev.data); }catch(e){ return; } if(!d||typeof d.path!=='string') return; this.applyPath(d.path,d.data,patch); this.onRemote(); });
+    on('put',false); on('patch',true);
+    es.addEventListener('keep-alive',()=>{ if(this.es===es) this.lastEvent=Date.now(); });
+    es.addEventListener('cancel',()=>{ if(tok!==this.ctok) return; this.notFound=true; refreshFamilyUI(); });
+    es.onopen=()=>{ if(tok!==this.ctok||this.es!==es) return; this.lastEvent=Date.now(); };
+    es.onerror=()=>{ if(tok!==this.ctok||this.es!==es) return; this.netOk=false; refreshFamilyUI(); if(es.readyState===2) this.later(()=>this.listen(),2500); };
   },
-  openConns(){ return [...this.conns.values()].filter(c=>c.open); },
-  dial(){
-    const s=sessions.family; if(!this.peer||this.peer.destroyed||this.peer.disconnected||this.role!=='guest') return;
-    if(this.openConns().length) return;
-    let conn; try{ conn=this.peer.connect(this.hostId(s.gid),{reliable:true,serialization:'json'}); }catch(e){ this.later(()=>this.dial(),3500); return; }
-    if(conn) this.wire(conn);
+  applyPath(path,data,patch){
+    const parts=path.split('/').filter(Boolean);
+    if(!parts.length){ if(patch&&this.mirror&&typeof this.mirror==='object'){ for(const k in data){ if(data[k]===null) delete this.mirror[k]; else this.mirror[k]=data[k]; } } else this.mirror=data; return; }
+    if(!this.mirror||typeof this.mirror!=='object') this.mirror={};
+    let o=this.mirror; for(let i=0;i<parts.length-1;i++){ const k=parts[i]; if(!o[k]||typeof o[k]!=='object') o[k]={}; o=o[k]; }
+    const last=parts[parts.length-1];
+    if(patch){ if(!o[last]||typeof o[last]!=='object') o[last]={}; for(const k in data){ if(data[k]===null) delete o[last][k]; else o[last][k]=data[k]; } }
+    else if(data===null) delete o[last]; else o[last]=data;
   },
-  wire(conn){
-    const tok=this.ctok; const rec={conn,cid:null,open:false};
-    this.conns.set(conn.peer+':'+(conn.connectionId||Math.random()),rec);
-    const key=[...this.conns.entries()].find(([k,v])=>v===rec)[0];
-    conn.on('open',()=>{ if(tok!==this.ctok) return; rec.open=true; rec.last=Date.now(); if(this.role==='guest') this.hostSeen=true;
-      this.send(conn,{t:'hello',cid:this.myId,name:this.myName,gid:sessions.family.gid}); this.sendState(conn); refreshFamilyUI(); });
-    conn.on('data',d=>{ if(tok===this.ctok) this.onData(rec,d); });
-    const gone=()=>{ if(tok!==this.ctok) return; this.conns.delete(key); this.updOnline(); refreshFamilyUI(); if(this.role==='guest') this.later(()=>this.dial(),2000); };
-    conn.on('close',gone); conn.on('error',gone);
+  remoteMoves(m){ const mv=m&&m.moves, out=[]; if(!mv||typeof mv!=='object') return out; for(let i=0;i<600;i++){ const u=mv[i]; if(typeof u!=='string') break; out.push(u); } return out; },
+  onRemote(){
+    const s=sessions.family, m=this.mirror;
+    if(m===undefined) return;
+    if(m===null||typeof m!=='object'){ this.netOk=this.role==='host'?false:this.netOk; if(this.role!=='host'){ this.notFound=true; refreshFamilyUI(); } return; }
+    this.netOk=true; this.notFound=false; this.hostSeen=true;
+    if(m.names&&typeof m.names==='object') for(const k in m.names) if(k!==this.myId&&typeof m.names[k]==='string') this.names[k]=m.names[k].slice(0,24);
+    const before=s.status, live=this.gotFirst;
+    this.merge({gid:s.gid,creator:m.creator,white:m.white,black:m.black,moves:this.remoteMoves(m),resigned:m.resigned,drawOffers:m.drawOffers||{}},live?'live':'db');
+    if(before==='open'&&s.status==='active'){
+      if(s.myColor&&this.oppId()){
+        if(s.creator===this.myId) toast((this.names[this.oppId()]||'Your friend')+' joined. Game on!');
+        else toast('You\'re in! You play '+(s.myColor==='w'?'White':'Black'));
+        SFX.good(); buzz(30);
+      }
+      if(sheetKind==='lobby') closeSheet();
+      if(S.tab==='family'){ renderLabels(); renderPieces({instant:true}); }
+    }
+    const r=m.react;
+    if(r&&typeof r==='object'&&r.by!==this.myId&&typeof r.n==='number'&&this.lastReact[r.by]!==r.n){
+      this.lastReact[r.by]=r.n;
+      if(live&&typeof r.e==='string'&&REACTS.includes(r.e)) floatEmoji(r.e,r.by===this.player('w')?'w':'b');
+    }
+    this.gotFirst=true;
+    // Opened an invite: take the free seat (the rules make a seat write-once, so two people can't both get it).
+    if(!s.myColor&&!m.resigned&&(!m.white||!m.black)&&m.creator!==this.myId&&!this.claiming){
+      this.claiming=true; this.put(m.white?'black':'white',this.myId).then(()=>{ this.claiming=false; });
+    }
+    // (No presence() here: our own "I'm here" write comes back through this stream and would loop forever.)
+    if(!live||(before==='open'&&s.status==='active')) this.presence();
+    this.updOnline(); this.saveGame(); this.pushLocal(); refreshFamilyUI();
   },
-  send(conn,obj){ try{ if(conn.open!==false) conn.send(obj); }catch(e){} },
+  // Send anything this phone has that the database doesn't yet: moves, resignation, draw offers, name.
+  // Safe to call any time; if the network is down it retries every few seconds.
+  async pushLocal(){
+    if(this.pushing){ this.pushAgain=true; return; }
+    this.pushing=true; let neterr=false;
+    try{
+      do{
+        this.pushAgain=false;
+        const s=sessions.family, m=this.mirror, gid=s.gid;
+        if(!gid||!m||typeof m!=='object') break;
+        const rm=this.remoteMoves(m), mine=s.game.moves;
+        if(mine.length>rm.length&&rm.every((u,i)=>u===mine[i])){
+          for(let i=rm.length;i<mine.length;i++){ const r=await this.put('moves/'+i,mine[i]); if(r==='neterr'){ neterr=true; break; } if(sessions.family.gid!==gid) break; }
+        }
+        if(!neterr&&s.resigned&&!m.resigned&&s.myColor===s.resigned){ if(await this.put('resigned',s.resigned)==='neterr') neterr=true; }
+        if(!neterr&&s.myColor){ const c=s.myColor, v=s.drawOffers[c]; if(typeof v==='number'&&(!m.drawOffers||m.drawOffers[c]!==v)){ if(await this.put('drawOffers/'+c,v)==='neterr') neterr=true; } }
+        if(!neterr&&this.myName&&(s.myColor||s.creator===this.myId)&&(!m.names||m.names[this.myId]!==this.myName)){ if(await this.put('names/'+this.myId,this.myName)==='neterr') neterr=true; }
+      }while(this.pushAgain&&!neterr);
+    } finally { this.pushing=false; }
+    if(neterr) this.later(()=>this.pushLocal(),3000);
+  },
+  presence(){
+    const s=sessions.family; if(!s.gid||!this.mirror||!s.myColor) return;
+    this.put('seen/'+this.myId,(document.hidden||s.over)?0:{'.sv':'timestamp'});
+  },
   updOnline(){
-    const opp=this.oppId();
-    this.oppOnline=this.openConns().some(c=>c.cid&&(opp?c.cid===opp:true));
+    const opp=this.oppId(), m=this.mirror; const t=opp&&m&&m.seen&&m.seen[opp];
+    this.oppOnline=typeof t==='number'&&t>0&&(Date.now()+this.skew-t)<50000;
   },
-  onData(rec,d){
-    if(!d||typeof d!=='object') return;
-    rec.last=Date.now();
-    if(d.t==='ping') return;
-    const s=sessions.family;
-    if(d.t==='hello'){
-      if(typeof d.cid!=='string'||d.gid!==s.gid) return;
-      rec.cid=d.cid.slice(0,40);
-      if(typeof d.name==='string'&&rec.cid!==this.myId) this.names[rec.cid]=d.name.slice(0,24);
-      if(this.role==='host'&&rec.cid!==this.myId&&s.white!==rec.cid&&s.black!==rec.cid&&(!s.white||!s.black)&&!s.over){
-        if(!s.white) s.white=rec.cid; else s.black=rec.cid;
-        s.status='active'; s.myColor=s.white===this.myId?'w':'b'; s.orientation=s.myColor;
-        toast((this.names[rec.cid]||'Your friend')+' joined. Game on!'); SFX.good(); buzz(30);
-        if(sheetKind==='lobby') closeSheet();
-        if(S.tab==='family'){ renderLabels(); renderPieces({instant:true}); }
-        this.saveGame(); this.broadcast();
-      } else this.sendState(rec.conn);
-      this.updOnline(); refreshFamilyUI(); if(S.tab==='family') renderAll();
-      return;
-    }
-    if(d.t==='state'&&rec.cid&&d.st&&typeof d.st==='object'){
-      if(d.names&&typeof d.names==='object') for(const k in d.names){ if(k!==this.myId&&typeof d.names[k]==='string'&&(k===rec.cid||!this.names[k])) this.names[k]=d.names[k].slice(0,24); }
-      const before=s.status;
-      this.merge(d.st,rec.cid);
-      if(this.role==='guest'&&before==='open'&&s.status==='active'){ s.myColor=s.white===this.myId?'w':(s.black===this.myId?'b':null); s.orientation=s.myColor||'w'; if(S.tab==='family'){ renderLabels(); renderPieces({instant:true}); renderAll(); } if(s.myColor){ toast('You\'re in! You play '+(s.myColor==='w'?'White':'Black')); SFX.good(); } }
-      this.updOnline();
-      if(this.role==='host') this.broadcast(rec);
-      this.saveGame(); refreshFamilyUI();
-    }
-  },
-  sendState(conn){ const s=sessions.family; if(!s.gid) return; const st=this.state4(); st.react=s.react||null; this.send(conn,{t:'state',st,names:this.seatNames()}); },
-  broadcast(except){ for(const c of this.openConns()) if(c!==except) this.sendState(c.conn); },
   merge(src,by){
     const s=sessions.family; if(!src||src.gid!==s.gid) return;
-    const fromDb=by==='db';
+    const live=by==='live', fromDb=by==='db'||live;
     let changed=false;
     if(!s.creator&&typeof src.creator==='string'&&(fromDb||by===src.creator)) s.creator=src.creator;
     for(const c of ['white','black']){
@@ -1701,26 +1706,24 @@ const Fam={
     let seatsChanged=changed;
     if(changed){ s.myColor=s.white===this.myId?'w':(s.black===this.myId?'b':null); if(s.myColor) s.orientation=s.myColor; }
     if(s.white&&s.black&&s.status==='open'){ s.status='active'; changed=true; seatsChanged=true; }
-    const isPlayer=by&&(by===s.white||by===s.black);
-    if(Array.isArray(src.moves)&&(fromDb||isPlayer)){
-      const mine=s.game.moves; const list=src.moves;
+    if(Array.isArray(src.moves)&&fromDb){
+      let mine=s.game.moves; const list=src.moves;
+      const extends_=list.length>mine.length&&mine.every((m,i)=>m===list[i]);
+      const behind=list.length<=mine.length&&list.every((m,i)=>m===mine[i]);
+      if(live&&!extends_&&!behind){ s.game=newGame(s.game.start); s.eng.loadUci(s.game.start,[]); mine=s.game.moves; changed=true; seatsChanged=true; } // the database is the truth
       if(list.length>mine.length&&mine.every((m,i)=>m===list[i])){
         let added=0;
         for(const u of list.slice(mine.length)){ if(typeof u!=='string') break; const m=s.eng.fromUci(u); if(!m) break; const san=s.eng.san(m); s.eng.make(m); s.game.moves.push(u); s.game.sans.push(san); added++; }
         if(added){
           changed=true;
-          if(!fromDb&&S.tab==='family'&&s.view===null){ S.selected=-1; S.targets=new Map(); const last=s.game.moves[s.game.moves.length-1]; renderPieces({hints:[[nameSq(last.slice(0,2)),nameSq(last.slice(2,4))]],ms:260});
+          if(live&&!seatsChanged&&S.tab==='family'&&s.view===null){ S.selected=-1; S.targets=new Map(); const last=s.game.moves[s.game.moves.length-1]; renderPieces({hints:[[nameSq(last.slice(0,2)),nameSq(last.slice(2,4))]],ms:260});
             const san=s.game.sans[s.game.sans.length-1]; setTimeout(()=>{ if(san.includes('+')||san.includes('#')) SFX.check(); else if(san.startsWith('O-O')) SFX.castle(); else if(san.includes('x')) SFX.capture(); else SFX.move(); buzz(12); },220); }
         }
       }
     }
     if((src.resigned==='w'||src.resigned==='b')&&!s.resigned&&(fromDb||by===this.player(src.resigned))){ s.resigned=src.resigned; changed=true; }
     if(src.drawOffers&&typeof src.drawOffers==='object') for(const c of ['w','b']){ const v=src.drawOffers[c]; if(typeof v==='number'&&v!==s.drawOffers[c]&&(fromDb||by===this.player(c))){ s.drawOffers[c]=v; changed=true; } }
-    if(!fromDb&&by&&by!==this.myId&&src.react&&typeof src.react.n==='number'&&this.lastReact[by]!==src.react.n){
-      const first=!(by in this.lastReact); this.lastReact[by]=src.react.n;
-      if(!first&&typeof src.react.e==='string'&&REACTS.includes(src.react.e)) floatEmoji(src.react.e,by===this.player('w')?'w':'b');
-    }
-    if(changed){ this.checkOver(fromDb); if(S.tab==='family'&&this.ready2){ if(seatsChanged){ renderLabels(); renderPieces({instant:true}); } renderAll(); } }
+    if(changed){ this.checkOver(fromDb&&!live); if(S.tab==='family'&&this.ready2){ if(seatsChanged){ renderLabels(); renderPieces({instant:true}); } renderAll(); } }
   },
   checkOver(silent){
     const s=sessions.family; if(s.over) return;
@@ -1728,17 +1731,22 @@ const Fam={
     if(s.resigned){ const w=s.resigned==='w'?'b':'w'; res={title:'Resigned',sub:`${s.resigned==='w'?'White':'Black'} resigned. ${w==='w'?'White':'Black'} wins`,win:w}; }
     else if(s.drawOffers.w!=null&&s.drawOffers.w===s.drawOffers.b&&s.drawOffers.w===s.game.moves.length){ res={title:'Draw agreed',sub:'Both players agreed to a draw',win:null}; }
     else { const st=s.eng.status(); if(st!=='ongoing') res=resultText(st,s.eng.turn()?'b':'w'); }
-    if(res){ s.over=res; s.status='over'; if(S.tab==='family'&&!silent) setTimeout(()=>showGameOver(s),600); this.saveGame(); }
+    if(res){ s.over=res; s.status='over'; if(S.tab==='family'&&!silent) setTimeout(()=>showGameOver(s),600); this.saveGame(); this.presence(); }
   },
   canIMove(color){ const s=sessions.family; return !!(s.gid&&s.status==='active'&&!s.over&&s.myColor===color); },
-  afterLocalMove(){ this.checkOver(); this.saveGame(); this.broadcast(); renderAll(); },
+  afterLocalMove(){ this.checkOver(); this.saveGame(); this.pushLocal(); renderAll(); },
   state4(){ const s=sessions.family; return {gid:s.gid,white:s.white,black:s.black,creator:s.creator,moves:s.game.moves.slice(),resigned:s.resigned,drawOffers:{w:s.drawOffers.w,b:s.drawOffers.b},status:s.over?'over':s.status}; },
-  publish(){ this.broadcast(); },
-  publishPresence(){ this.broadcast(); },
-  resign(){ const s=sessions.family; if(!s.myColor||s.over||s.status!=='active') return; s.resigned=s.myColor; this.checkOver(); this.saveGame(); this.broadcast(); renderAll(); },
-  offerDraw(){ const s=sessions.family; if(!s.myColor||s.over||s.status!=='active') return; s.drawOffers[s.myColor]=s.game.moves.length; this.checkOver(); this.saveGame(); this.broadcast(); renderAll(); if(!s.over) toast('Draw offered'); },
-  react(e){ const s=sessions.family; s.react={e,n:((s.react&&s.react.n)||0)+1}; this.broadcast(); floatEmoji(e,s.myColor||'w'); },
-  cancel(){ const s=sessions.family; const all=this.games(); delete all[s.gid]; store.set('peerGames',all); this.leave(); s.gid=null; store.set('peerLast',null);
+  broadcast(){ this.pushLocal(); },
+  publish(){ this.pushLocal(); },
+  publishPresence(){ this.presence(); },
+  resign(){ const s=sessions.family; if(!s.myColor||s.over||s.status!=='active') return; s.resigned=s.myColor; this.checkOver(); this.saveGame(); this.pushLocal(); renderAll(); },
+  offerDraw(){ const s=sessions.family; if(!s.myColor||s.over||s.status!=='active') return; s.drawOffers[s.myColor]=s.game.moves.length; this.checkOver(); this.saveGame(); this.pushLocal(); renderAll(); if(!s.over) toast('Draw offered'); },
+  react(e){ const s=sessions.family; s.react={e,n:((s.react&&s.react.n)||0)+1}; this.put('react',{by:this.myId,e,n:s.react.n}); floatEmoji(e,s.myColor||'w'); },
+  cancel(){
+    const s=sessions.family;
+    // An invite nobody has joined yet is deleted online too; finished or ongoing games are only removed from this phone.
+    if(s.gid&&s.status==='open'&&s.creator===this.myId) fetch(this.url(''),{method:'DELETE'}).catch(()=>{});
+    const all=this.games(); delete all[s.gid]; store.set('peerGames',all); this.leave(); s.gid=null; store.set('peerLast',null);
     Object.assign(s,{white:null,black:null,creator:null,status:'open',resigned:null,drawOffers:{w:null,b:null},over:null,view:null,myColor:null,orientation:'w'});
     s.game=newGame(); s.eng.loadUci(START,[]);
     if(S.tab==='family'){ renderLabels(); renderPieces({instant:true}); }
@@ -2069,9 +2077,9 @@ function renderLobby(){
     const link=Fam.link(s.gid);
     h+=`<div class="card"><h3>Your invite link</h3><p style="word-break:break-all;color:var(--accent2);font-size:14px;margin:6px 0 10px">${esc(link)}</p>
       <div class="row" style="margin-top:0"><button class="btn primary" id="lbShare">Send link</button><button class="btn" id="lbCopy">Copy</button></div>
-      <p class="note" style="margin-top:10px">Send it by WhatsApp, text or email. The game starts as soon as they open it. <b>Keep this app open</b> until they join.</p>
+      <p class="note" style="margin-top:10px">Send it by WhatsApp, text or email. The game starts as soon as they open it. You can close the app meanwhile: their moves will be waiting when you come back.</p>
       <p class="note" style="margin-top:6px">Got the app on their phone? They can open it, go to <b>Family → Join with code</b> and paste the link.</p>
-      <p class="note" style="margin-top:6px">${Fam.netOk?'🟢 Ready and waiting':'🟡 Connecting…'}</p></div>`;
+      <p class="note" style="margin-top:6px">${Fam.netOk&&Fam.mirror?'🟢 Ready. Your friend can join any time':'🟡 Connecting…'}</p></div>`;
     h+=`<div class="row"><button class="btn" id="lbCancel">Cancel this game</button></div>`;
   } else {
     h+=`<div class="row" style="margin-top:0"><button class="btn primary" id="lbNew">${ICON.plus}New game & invite link</button><button class="btn" id="lbJoin">Join with code</button></div>`;
@@ -2088,7 +2096,7 @@ function renderLobby(){
     }).join('')+'</div>';
   }
   h+=`<h4>You</h4><div class="item"><div class="av">👤</div><div class="t"><b>${esc(Fam.myName||'Player')}</b><span>Your name in games</span></div><button class="tag" id="lbName">Change</button></div>`;
-  h+=`<p class="note" style="margin-top:14px">Both players need the app open at the same time. Games are saved on each phone, so you can pick up where you left off.</p>`;
+  h+=`<p class="note" style="margin-top:14px">Games are saved online. Play live together, or take turns whenever you like, like chess by post.</p>`;
   body.innerHTML=h;
   const link=s.gid?Fam.link(s.gid):'';
   const copy=()=>{ (navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(()=>toast('Link copied')).catch(()=>toast('Press and hold the link to copy it')); };
