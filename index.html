@@ -46,6 +46,8 @@ main{flex:1;display:flex;flex-direction:column;align-items:center;min-height:0;o
 .caps img{width:18px;height:18px;margin-left:-6px}
 .caps img:first-child{margin-left:0}
 .caps .adv{font-size:12px;color:var(--muted);margin-left:4px}
+.lvchip{flex:none;display:inline-flex;align-items:center;gap:2px;height:26px;padding:0 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:inherit;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.lvchip:active{box-shadow:0 0 0 2px var(--accent)}
 .online-dot{width:8px;height:8px;border-radius:50%;background:#6b5a48;display:inline-block;margin-left:6px}
 .online-dot.on{background:var(--good);box-shadow:0 0 6px var(--good)}
 .thinking{display:inline-flex;gap:3px;margin-left:6px}
@@ -75,6 +77,8 @@ main{flex:1;display:flex;flex-direction:column;align-items:center;min-height:0;o
 .hl.hover{box-shadow:inset 0 0 0 3px rgba(255,236,190,.85)}
 .hl.wrong{background:rgba(222,80,60,.5);animation:fade 1s forwards}
 .hl.right{background:rgba(120,190,90,.5);animation:fade 1.2s forwards}
+.hl.goal{background:radial-gradient(circle,rgba(255,200,90,.85) 0%,rgba(255,200,90,.45) 40%,rgba(255,200,90,.12) 72%);box-shadow:inset 0 0 0 4px rgba(255,205,110,.95);animation:goalpulse 1.6s ease-in-out infinite}
+@keyframes goalpulse{50%{opacity:.6}}
 @keyframes fade{to{opacity:0}}
 .dot{position:absolute;width:var(--sq);height:var(--sq);display:grid;place-items:center}
 .dot::after{content:"";width:28%;height:28%;border-radius:50%;background:rgba(40,20,8,.42);box-shadow:0 1px 0 rgba(255,230,190,.25)}
@@ -220,6 +224,7 @@ nav.tabs button.on{color:var(--accent2);background:rgba(227,165,90,.1)}
     <button data-tab="family"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M2.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5M14 15c.8-.6 1.8-1 3-1 2.3 0 4 1.5 4.5 4"/></svg>Family</button>
     <button data-tab="openings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 5.5C6.5 4.5 9.5 4.6 12 6.5v13c-2.5-1.9-5.5-2-8-1V5.5zM20 5.5c-2.5-1-5.5-.9-8 1v13c2.5-1.9 5.5-2 8-1V5.5z"/></svg>Openings</button>
     <button data-tab="puzzles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M10 3h4v3a2 2 0 1 0 0 0h4v4a2 2 0 1 1 0 4v4H4v-4a2 2 0 1 0 0-4V6h4"/></svg>Puzzles</button>
+    <button data-tab="learn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></svg>Learn</button>
   </nav>
 </div>
 <div id="scrim"></div>
@@ -995,6 +1000,7 @@ const sessions={};
   sessions.openings=Object.assign(mkSession(newGame()),{op:null,mistakes:0,done:false,msg:'',msgType:''});
   sessions.puzzles=Object.assign(mkSession(newGame()),{idx:-1,left:0,solved:false,msg:'',msgType:'',checking:false});
   sessions.family=Object.assign(mkSession(newGame()),{gid:null});
+  sessions.learn=Object.assign(mkSession(newGame()),{les:null,step:0,done:false,msg:'',msgType:'',checking:false});
 })();
 function rebuildSans(game){ const e=EngineFactory(); e.setFen(game.start); const sans=[]; const ok=[];
   for(const u of game.moves){ const m=e.fromUci(u); if(!m) break; sans.push(e.san(m)); ok.push(u); e.make(m); }
@@ -1008,6 +1014,7 @@ function humanCanMove(color){
     case 'play': return s.kind==='local'||color===s.human;
     case 'openings': return s.op&&!s.done&&color===s.op.side;
     case 'puzzles': return s.idx>=0&&!s.solved&&!s.checking&&color===s.side;
+    case 'learn': return !!s.les&&!s.done&&!s.checking&&color==='w';
     case 'family': return Fam.canIMove(color);
   }
   return false;
@@ -1088,6 +1095,7 @@ function renderHL(){
   if(eng.inCheck()){ const k=eng.kingSquare(); put((k>>4)*8+(k&7),'check'); }
   if(D.hover>=0) put(D.hover,'hover');
   for(const f of S.flashes) put(f.s,f.cls);
+  if(S.tab==='learn'&&s.les&&!s.done&&!s.checking){ const st=learnStep(s); if(st&&st.goal.to) for(const t of st.goal.to) put(nameSq(t),'goal'); }
   hlLayer.innerHTML=h;
   let d='';
   if(settings.dots&&S.selected>=0) for(const [t] of S.targets){ const [x,y]=sqXY(t); const occ=displayed().board[t]; d+=`<div class="dot${occ?' cap':''}" style="transform:translate(${x}px,${y}px)"></div>`; }
@@ -1130,6 +1138,7 @@ function select(sq){ S.selected=sq; S.targets=computeTargets(sq); renderHL(); }
 function deselect(){ S.selected=-1; S.targets=new Map(); renderHL(); }
 boardEl.addEventListener('pointerdown',e=>{
   if(e.button>0||D.active) return;
+  if(e.target.closest('#promo')) return; // taps on the promotion picker are not board taps
   ac();
   const [x,y]=bxy(e); const sq=sqAt(x,y); if(sq<0) return;
   e.preventDefault();
@@ -1293,6 +1302,7 @@ function afterMove(s){
   }
   if(s===sessions.openings){ openingsAfter(s); return; }
   if(s===sessions.puzzles){ puzzleAfter(s); return; }
+  if(s===sessions.learn){ learnAfter(s); return; }
   if(s===sessions.family){ Fam.afterLocalMove(); return; }
 }
 async function cpuMove(){
@@ -1328,6 +1338,7 @@ function startPlay(kind,colorPref,level){
 async function showHint(){
   const s=cur(); if(s.over||S.thinking) return;
   if(S.tab==='openings'){ S.hint=s.op.uci[s.game.moves.length]||null; renderHL(); return; }
+  if(S.tab==='learn'){ const st=learnStep(s); if(st&&!s.done&&!s.checking){ S.hint=st.sol; renderHL(); } return; }
   if(S.tab==='puzzles'){
     S.busy=true; renderPanel();
     const r=await askEngine(s.game.start,s.game.moves,{maxDepth:2*s.left-1,timeMs:15000,noPrune:true,mateDepth:2*s.left-1});
@@ -1400,6 +1411,86 @@ async function puzzleAfter(s){
     await new Promise(x=>setTimeout(x,550)); if(tok!==S.token) return;
     s.checking=false; commitMove(r.move,{session:s});
   } else await wrong('That lets the king escape. Try again.');
+}
+
+/* ================= learn: beginner lessons ================= */
+// Each step: a position (White to move), a task, a goal and a solution move for Hint.
+// goal: to = target squares (glow on the board), pc = piece that must land there,
+//       uci = exact moves accepted, check / mate = must give check / checkmate, {} = any legal move.
+const LESSONS=[
+  {id:'pawn',title:'The pawn',about:'Pawns move straight forward one square. On their first move they may go two. They capture one square diagonally.',steps:[
+    {fen:'4k3/8/8/8/8/8/4P3/4K3 w - - 0 1',task:'Move the pawn two squares forward to the glowing square.',goal:{to:['e4'],pc:'P'},sol:'e2e4',ok:'Nice! A pawn can jump two squares on its first move.'},
+    {fen:'4k3/8/8/3np3/4P3/8/8/4K3 w - - 0 1',task:'Your pawn is blocked. Capture the knight diagonally.',goal:{to:['d5'],pc:'P'},sol:'e4d5',ok:'Got it! Pawns move forward but capture diagonally.'},
+    {fen:'4k3/P7/8/8/8/8/8/4K3 w - - 0 1',task:'Push the pawn to the last row. It becomes a queen!',goal:{to:['a8']},sol:'a7a8q',ok:'Promotion! A pawn that reaches the end turns into a new piece.'}]},
+  {id:'rook',title:'The rook',about:'Rooks move in straight lines: up, down, left or right, as far as they like.',steps:[
+    {fen:'7k/8/8/8/8/8/8/R3K3 w - - 0 1',task:'Slide the rook up to the glowing square.',goal:{to:['a6'],pc:'R'},sol:'a1a6',ok:'Straight up the board.'},
+    {fen:'7k/8/R5b1/8/8/8/8/4K3 w - - 0 1',task:'Now slide sideways and capture the bishop.',goal:{to:['g6'],pc:'R'},sol:'a6g6',ok:'Captured! You take a piece by moving onto its square.'}]},
+  {id:'bishop',title:'The bishop',about:'Bishops move diagonally, as far as they like. Each bishop stays on one colour all game.',steps:[
+    {fen:'7k/8/8/8/8/8/8/2B1K3 w - - 0 1',task:'Move the bishop along the diagonal to the glowing square.',goal:{to:['h6'],pc:'B'},sol:'c1h6',ok:'All the way along the diagonal.'},
+    {fen:'7k/8/8/1r6/8/8/8/4KB2 w - - 0 1',task:'Capture the rook with your bishop.',goal:{to:['b5'],pc:'B'},sol:'f1b5',ok:'A rook is worth more than a bishop. Great trade!'}]},
+  {id:'queen',title:'The queen',about:'The queen moves like a rook and a bishop together: straight or diagonal, as far as she likes. She is your strongest piece.',steps:[
+    {fen:'7k/8/8/8/n7/8/8/3QK3 w - - 0 1',task:'Capture the knight with a diagonal move.',goal:{to:['a4'],pc:'Q'},sol:'d1a4',ok:'Diagonal, like a bishop.'},
+    {fen:'7k/3r4/8/8/8/8/8/3QK3 w - - 0 1',task:'Now capture the rook with a straight move.',goal:{to:['d7'],pc:'Q'},sol:'d1d7',ok:'Straight, like a rook. That is why the queen is so strong.'}]},
+  {id:'knight',title:'The knight',about:'Knights move in an L: two squares one way, then one square to the side. They are the only piece that can jump over others.',steps:[
+    {fen:'7k/8/8/8/8/8/PPPPPPPP/1N2K3 w - - 0 1',task:'Jump the knight over the pawns to a glowing square.',goal:{to:['a3','c3'],pc:'N'},sol:'b1c3',ok:'Jump! Nothing can block a knight.'},
+    {fen:'7k/8/5q2/8/4N3/8/8/4K3 w - - 0 1',task:'Find the L-shaped move that captures the queen.',goal:{to:['f6'],pc:'N'},sol:'e4f6',ok:'You won the queen with a knight!'}]},
+  {id:'king',title:'The king',about:'The king moves one square in any direction. He may never move onto a square that is attacked.',steps:[
+    {fen:'7k/8/8/8/8/8/8/4K3 w - - 0 1',task:'Step the king forward one square.',goal:{to:['e2'],pc:'K'},sol:'e1e2',ok:'One step at a time.'},
+    {fen:'7k/8/8/8/8/8/3r4/4K3 w - - 0 1',task:'The rook guards the second row, so the king cannot go there. Tap the king to see his safe squares, then capture the rook.',goal:{to:['d2'],pc:'K'},sol:'e1d2',ok:'The king can capture too, when the piece is not protected.'}]},
+  {id:'check',title:'Check',about:'When a piece attacks the king, that is check. The king must get out of check straight away: move away, block, or capture the attacker.',steps:[
+    {fen:'4k3/8/8/8/8/8/8/R3K3 w - - 0 1',task:'Give check: attack the black king with your rook.',goal:{check:true},sol:'a1a8',ok:'Check! The black king is under attack.'},
+    {fen:'4k3/8/8/8/1b6/8/8/4K3 w - - 0 1',task:'The bishop is giving you check. Move your king to safety.',goal:{pc:'K'},sol:'e1e2',ok:'Escaped! Moving away is one way out of check.'},
+    {fen:'4k3/8/8/8/1b6/8/8/1N2K3 w - - 0 1',task:'Check again! This time block it by putting your knight in the way.',goal:{to:['c3','d2'],pc:'N'},sol:'b1d2',ok:'Blocked! A piece in the way stops the check.'},
+    {fen:'4k3/8/8/Q7/1b6/8/8/4K3 w - - 0 1',task:'Check once more. Capture the attacking bishop.',goal:{to:['b4'],pc:'Q'},sol:'a5b4',ok:'Capturing the attacker is the third way out of check.'}]},
+  {id:'mate',title:'Checkmate',about:'Checkmate is check with no way out. The king cannot escape, block or capture, and the game is won!',steps:[
+    {fen:'6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1',task:'The black king is stuck behind his pawns. Checkmate him with the rook.',goal:{mate:true},sol:'a1a8',ok:'Checkmate! This is called a back-rank mate.'},
+    {fen:'7k/8/6K1/8/8/8/8/Q7 w - - 0 1',task:'Your king and queen work together. Find checkmate in one move.',goal:{mate:true},sol:'a1a8',ok:'Checkmate! The king guards the escape squares.'}]},
+  {id:'special',title:'Special moves',about:'Two special moves: castling, which tucks your king away safely, and en passant, a sneaky pawn capture.',steps:[
+    {fen:'4k3/8/8/8/8/8/5PPP/R3K2R w KQ - 0 1',task:'Castle: move the king two squares towards a rook. The rook jumps over him.',goal:{uci:['e1g1','e1c1']},sol:'e1g1',ok:'Castled! You can only do it if the king and rook have not moved yet.'},
+    {fen:'4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 2',task:'Black\'s pawn just jumped two squares, right past yours. Capture it en passant, as if it had moved only one.',goal:{uci:['e5d6']},sol:'e5d6',ok:'En passant! It is only allowed straight after the pawn jumps.'}]}
+];
+const learnDone=store.get('learnDone',{});
+function learnStep(s){ return s.les?s.les.steps[s.step]:null; }
+function loadLearnStep(s){
+  const st=learnStep(s); S.token++;
+  s.game=newGame(st.fen); s.eng.loadUci(st.fen,[]); s.view=null; s.over=null; s.orientation='w'; s.checking=false;
+  S.hint=null; S.selected=-1; S.targets=new Map();
+  if(S.tab==='learn'){ renderLabels(); renderPieces({instant:true}); renderAll(); }
+}
+function startLesson(les){
+  const s=sessions.learn; s.les=les; s.step=0; s.done=false; s.msg=''; s.msgType='';
+  loadLearnStep(s);
+  if(S.tab!=='learn') switchTab('learn',true);
+}
+function learnOk(st,u,s){
+  const g=st.goal;
+  if(g.uci) return g.uci.includes(u.slice(0,4));
+  if(g.mate) return s.eng.status()==='checkmate';
+  if(g.check) return s.eng.inCheck();
+  if(g.to&&!g.to.includes(u.slice(2,4))) return false;
+  if(g.pc){ const p=s.eng.board()[nameSq(u.slice(2,4))]; if(!p||p.toUpperCase()!==g.pc) return false; }
+  return true;
+}
+function learnAfter(s){
+  const st=learnStep(s), u=s.game.moves[s.game.moves.length-1], tok=S.token;
+  s.checking=true;
+  const show=()=>{ if(S.tab==='learn') renderAll(); };
+  if(learnOk(st,u,s)){
+    if(S.tab==='learn') flash(nameSq(u.slice(2,4)),'right');
+    s.msg=st.ok||'Well done!'; s.msgType='good'; show();
+    setTimeout(()=>{
+      if(tok!==S.token) return;
+      if(s.step+1<s.les.steps.length){ s.step++; loadLearnStep(s); }
+      else { s.done=true; s.checking=false; learnDone[s.les.id]=1; store.set('learnDone',learnDone); s.msg=s.msg+' Lesson complete! ★'; show(); SFX.win(); }
+    },1800);
+  } else {
+    s.msg=st.wrong||'Not quite. Have another go, or tap Hint.'; s.msgType='bad'; show(); SFX.bad(); buzz([20,40,20]);
+    setTimeout(()=>{
+      if(tok!==S.token) return;
+      s.game.moves.pop(); s.game.sans.pop(); s.eng.loadUci(s.game.start,s.game.moves); s.checking=false;
+      if(S.tab==='learn'){ renderPieces({ms:220}); renderAll(); }
+    },1100);
+  }
 }
 
 /* ================= family (online) ================= */
@@ -1665,12 +1756,12 @@ function capturedInfo(board){
   for(const c of 'wb') for(const t of 'qrbnp'){ const n=Math.max(0,init[t]-cnt[c][t]); for(let i=0;i<n;i++) lost[c].push(t); }
   return {lost,diff:mat.w-mat.b};
 }
-function stripHTML(color,name,sub,avatar,{turn,thinking,online}={}){
+function stripHTML(color,name,sub,avatar,{turn,thinking,online,lvl,nocaps}={}){
   const {board}=displayed(); const ci=capturedInfo(board);
   const opp=color==='w'?'b':'w';
   const caps=ci.lost[opp].map(t=>`<img src="${IMG[opp+t.toUpperCase()]}" alt="">`).join('');
   const adv=color==='w'?ci.diff:-ci.diff;
-  return `<div class="av${turn?' turn':''}">${avatar}</div><div style="min-width:0"><div class="pname">${esc(name)}${online!==undefined?`<span class="online-dot${online?' on':''}"></span>`:''}${thinking?'<span class="thinking"><i></i><i></i><i></i></span>':''}</div>${sub?`<div class="psub">${esc(sub)}</div>`:''}</div><div class="caps">${caps}${adv>0?`<span class="adv">+${adv}</span>`:''}</div>`;
+  return `<div class="av${turn?' turn':''}">${avatar}</div><div style="min-width:0"><div class="pname">${esc(name)}${online!==undefined?`<span class="online-dot${online?' on':''}"></span>`:''}${thinking?'<span class="thinking"><i></i><i></i><i></i></span>':''}</div>${sub?`<div class="psub">${esc(sub)}</div>`:''}</div>${lvl?'<button class="lvchip" data-act="level" aria-label="Change computer level">Level ▾</button>':''}${nocaps?'':`<div class="caps">${caps}${adv>0?`<span class="adv">+${adv}</span>`:''}</div>`}`;
 }
 function esc(t){ return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function renderStrips(){
@@ -1678,16 +1769,17 @@ function renderStrips(){
   const info={};
   const pimg=c=>`<img src="${IMG[c+'K']}" alt="" style="width:80%;height:80%;object-fit:contain">`;
   if(S.tab==='play'){
-    if(s.kind==='cpu'){ const c=s.human, o=c==='w'?'b':'w'; info[c]={name:'You',av:pimg(c)}; info[o]={name:LEVELS[s.level].name,sub:'Computer',av:'🌳',thinking:S.thinking}; }
+    if(s.kind==='cpu'){ const c=s.human, o=c==='w'?'b':'w'; info[c]={name:'You',av:pimg(c)}; info[o]={name:LEVELS[s.level].name,sub:'Computer',av:'🌳',thinking:S.thinking,lvl:true}; }
     else { info.w={name:'White',av:pimg('w')}; info.b={name:'Black',av:pimg('b')}; }
   } else if(S.tab==='openings'){ const c=s.op?s.op.side:'w', o=c==='w'?'b':'w'; info[c]={name:'You',av:pimg(c)}; info[o]={name:'Opening book',av:'📖'}; }
   else if(S.tab==='puzzles'){ const c=s.side||'w', o=c==='w'?'b':'w'; info[c]={name:'You',av:pimg(c)}; info[o]={name:'Defender',av:'🛡️'}; }
+  else if(S.tab==='learn'){ info.w={name:'You',av:pimg('w'),nocaps:true}; info.b={name:'Coach',sub:'Learn to play',av:'🎓',nocaps:true}; }
   else {
     const av=id=>{ const u=Fam.avatars&&Fam.avatars[id]; return u?`<img src="${esc(u)}" alt="">`:'👤'; };
     for(const c of 'wb'){ const id=c==='w'?s.white:s.black; info[c]={name:s.gid?Fam.nm(id):(c==='w'?'White':'Black'),av:id?av(id):pimg(c),online:(s.gid&&id&&id!==Fam.myId)?Fam.oppOnline:undefined}; }
   }
   const bottom=s.orientation, top=bottom==='w'?'b':'w';
-  for(const [el,c] of [[$('#stripTop'),top],[$('#stripBottom'),bottom]]){ const i=info[c]; el.innerHTML=stripHTML(c,i.name,i.sub,i.av,{turn:!s.over&&stm===c,thinking:i.thinking,online:i.online}); }
+  for(const [el,c] of [[$('#stripTop'),top],[$('#stripBottom'),bottom]]){ const i=info[c]; el.innerHTML=stripHTML(c,i.name,i.sub,i.av,{turn:!s.over&&stm===c,thinking:i.thinking,online:i.online,lvl:i.lvl,nocaps:i.nocaps}); }
 }
 const ICON={
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
@@ -1749,6 +1841,14 @@ function renderPanel(){
       h+=`<div class="moves">${movesHTML(s)}</div>`;
       h+=`<div class="controls"><button class="btn" data-act="pzlist">${ICON.list}List</button><button class="btn" data-act="pzclue" ${s.solved?'disabled':''}>Clue</button><button class="btn" data-act="hint" ${s.solved||s.checking||S.busy?'disabled':''}>${ICON.bulb}Hint</button><button class="btn" data-act="pzretry">${ICON.retry}Retry</button><button class="btn ${s.solved?'primary':''}" data-act="pznext">Next</button></div>`;
     }
+  } else if(S.tab==='learn'){
+    if(!s.les){ const n=LESSONS.filter(l=>learnDone[l.id]).length; h+=`<div class="card"><h3>Learn to play chess</h3><p>New to chess? ${LESSONS.length} short lessons show how each piece moves, what check and checkmate mean, and the special moves. Finished ${n} of ${LESSONS.length}.</p></div><div class="controls"><button class="btn primary" data-act="lsnext">Start learning</button><button class="btn" data-act="lslist">${ICON.list}All lessons</button></div>`; }
+    else {
+      const L=s.les, st=learnStep(s), li=LESSONS.indexOf(L), last=li===LESSONS.length-1;
+      let dots=''; for(let i=0;i<L.steps.length;i++) dots+=`<i class="${(i<s.step||s.done)?'done':(i===s.step?'now':'')}"></i>`;
+      h+=`<div class="card"><h3>${esc(L.title)} <span style="font-size:12px;color:var(--muted);font-family:Inter">lesson ${li+1} of ${LESSONS.length}</span></h3><p>${esc(L.about)}</p>${s.done?'':`<p style="margin-top:8px"><b>${esc(st.task)}</b></p>`}<div class="progress">${dots}</div><div class="feedback ${s.msgType}">${esc(s.msg)}</div></div>`;
+      h+=`<div class="controls"><button class="btn" data-act="lslist">${ICON.list}Lessons</button><button class="btn" data-act="hint" ${s.done||s.checking?'disabled':''}>${ICON.bulb}Hint</button><button class="btn" data-act="lsretry">${ICON.retry}Restart</button>${s.done?(last?`<button class="btn primary" data-act="lsplay">Play Twig</button>`:`<button class="btn primary" data-act="lsnext">Next lesson</button>`):''}</div>`;
+    }
   } else {
     if(Fam.state==='loading') h+=`<div class="card"><h3>Family games</h3><p>Connecting…</p></div>`;
     else if(Fam.state==='off') h+=`<div class="card"><h3>Family games</h3><p>${esc(Fam.textOff)}</p></div><div class="controls"><button class="btn" data-act="tabplay">Play the computer instead</button></div>`;
@@ -1795,6 +1895,10 @@ $('#panel').addEventListener('click',e=>{
     case 'pzclue': s.showHint=true; renderPanel(); break;
     case 'pzretry': startPuzzle(s.p); break;
     case 'pznext': { const order=PUZ_ORDER; let i=s.idx<0?-1:order.indexOf(s.p); let nxt=order.find((p,k)=>k>i&&!puzSolved[p.i])||order[(i+1)%order.length]; startPuzzle(nxt); break; }
+    case 'lslist': openLessons(); break;
+    case 'lsretry': startLesson(s.les); break;
+    case 'lsnext': { const i=s.les?LESSONS.indexOf(s.les):-1; startLesson(LESSONS.find((l,k)=>k>i&&!learnDone[l.id])||LESSONS[(i+1)%LESSONS.length]); break; }
+    case 'lsplay': startPlay('cpu','w',0); toast('Your first game against Twig. Good luck!'); break;
     case 'lobby': openLobby(); break;
     case 'tabplay': switchTab('play'); break;
     case 'resign': confirmSheet('Resign this game?','Your opponent will be told you resigned.','Resign',()=>Fam.resign()); break;
@@ -1847,10 +1951,27 @@ function openNewGame(){
   };
   draw();
 }
+function openLevelPicker(){
+  const s=sessions.play; if(S.tab!=='play'||s.kind!=='cpu') return;
+  openSheet(`<h2>Computer level</h2><p class="note">Changes straight away. Your game carries on.</p>
+    <div class="levels" id="lvPick">${LEVELS.map((l,i)=>`<button data-l="${i}" class="${s.level===i?'on':''}"><b>${l.name}</b><span>${l.desc}</span><div class="lvbar">${LEVELS.map((_,j)=>`<i class="${j<=i?'f':''}"></i>`).join('')}</div></button>`).join('')}</div>`,'level');
+  $('#lvPick').onclick=e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    const l=+b.dataset.l; closeSheet(); if(l===s.level) return;
+    s.level=l; savePlay(); renderStrips(); renderPanel();
+    toast(S.thinking?`${LEVELS[l].name} takes over from the next move`:`Now playing ${LEVELS[l].name}`);
+  };
+}
+for(const id of ['#stripTop','#stripBottom']) $(id).addEventListener('click',e=>{ if(e.target.closest('[data-act="level"]')) openLevelPicker(); });
 function openOpenings(){
   const grp=side=>OPENINGS.filter(o=>o.side===side).map(o=>{ const d=opDone[o.id]; return `<button class="item" data-op="${o.id}"><div class="t"><b>${esc(o.name)}</b><span>${esc(o.sans.slice(0,6).join(' '))}…</span></div>${d?`<span class="tag ${d===2?'good':''}">${d===2?'★ Mastered':'Done'}</span>`:`<span class="tag">${Math.ceil(o.uci.length/2)} moves</span>`}</button>`; }).join('');
   openSheet(`<h2>Openings</h2><p class="note">Play the book moves for your side. Get a line right with no mistakes to master it.</p><h4>As White</h4><div class="list">${grp('w')}</div><h4>As Black</h4><div class="list">${grp('b')}</div>`,'openings');
   $('#sheet').onclick=e=>{ const b=e.target.closest('[data-op]'); if(b){ closeSheet(); $('#sheet').onclick=null; startOpening(OPENINGS.find(o=>o.id===b.dataset.op)); } };
+}
+function openLessons(){
+  const items=LESSONS.map((l,i)=>`<button class="item" data-ls="${i}"><div class="t"><b>${i+1}. ${esc(l.title)}</b><span>${esc(l.about)}</span></div>${learnDone[l.id]?'<span class="tag good">✓ Done</span>':`<span class="tag">${l.steps.length} steps</span>`}</button>`).join('');
+  openSheet(`<h2>Lessons</h2><p class="note">Short, hands-on lessons for beginners. Move the pieces yourself on the board.</p><div class="list">${items}</div>`,'lessons');
+  $('#sheet').onclick=e=>{ const b=e.target.closest('[data-ls]'); if(b){ closeSheet(); $('#sheet').onclick=null; startLesson(LESSONS[+b.dataset.ls]); } };
 }
 function openPuzzles(){
   const items=PUZ_ORDER.map(p=>`<button class="item" data-pz="${p.i}"><div class="t"><b>${esc(p.title)}</b><span>Mate in ${p.mate}</span></div>${puzSolved[p.i]?'<span class="tag good">★ Solved</span>':'<span class="tag">Unsolved</span>'}</button>`).join('');
