@@ -86,7 +86,12 @@ main{flex:1;display:flex;flex-direction:column;align-items:center;min-height:0;o
 .pc{position:absolute;left:0;top:0;width:var(--sq);height:var(--sq);will-change:transform;z-index:2}
 .pc img{width:100%;height:100%;display:block;transform-origin:50% 22%;pointer-events:none;-webkit-user-drag:none}
 .pc.lifted{z-index:20}
-.pc.lifted img{filter:drop-shadow(0 calc(var(--sq)*.22) calc(var(--sq)*.12) rgba(0,0,0,.45))}
+.pc.lifted img{filter:drop-shadow(0 calc(var(--sq)*.05) calc(var(--sq)*.04) rgba(0,0,0,.35)) brightness(1.06)}
+/* ground shadow of a dragged piece: stays on the board while the piece rises above it */
+.dshadow{position:absolute;left:0;top:0;width:var(--sq);height:var(--sq);pointer-events:none;z-index:15;opacity:0;will-change:transform,opacity;background:radial-gradient(ellipse 36% 12% at 50% 87%,rgba(0,0,0,.6),rgba(0,0,0,.25) 55%,rgba(0,0,0,0) 100%)}
+.dshadow:not(.on){opacity:0!important;transition:opacity .15s}
+.pc.land img{animation:land .34s cubic-bezier(.3,1.4,.5,1)}
+@keyframes land{0%{transform:scale(1.12,.84)}40%{transform:scale(.95,1.06)}70%{transform:scale(1.02,.98)}100%{transform:scale(1)}}
 .pc.hop img{animation:hop .26s ease-out}
 @keyframes hop{0%{transform:scale(1)}45%{transform:scale(1.12) translateY(-7%)}100%{transform:scale(1)}}
 .pc.gone{transition:opacity .18s,transform .18s!important;opacity:0}
@@ -106,7 +111,10 @@ main{flex:1;display:flex;flex-direction:column;align-items:center;min-height:0;o
 .panel{width:100%;max-width:640px;padding:6px 12px 8px;display:flex;flex-direction:column;gap:8px;min-height:0;flex:1;overflow-y:auto}
 .status{display:flex;align-items:center;gap:8px;min-height:22px;font-size:14px;color:var(--muted)}
 .status b{color:var(--text);font-weight:600}
-.status .op{margin-left:auto;font-family:Fraunces,Georgia,serif;color:var(--accent2);font-size:13px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.status .op{margin-left:auto;font-family:Fraunces,Georgia,serif;color:var(--accent2);font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62%;padding:3px 10px 3px 9px;border-radius:999px;background:color-mix(in srgb,var(--accent2) 14%,transparent);border:1px solid color-mix(in srgb,var(--accent2) 35%,transparent)}
+.status .op::before{content:'📖 ';font-size:11px}
+.status .op.new{animation:opin .5s ease-out}
+@keyframes opin{0%{opacity:0;transform:translateY(5px) scale(.94)}60%{opacity:1;transform:scale(1.04)}100%{transform:none}}
 .controls{display:flex;gap:8px}
 .btn{flex:1;min-height:44px;border-radius:12px;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;transition:transform .08s,background .15s}
 .btn:active{transform:scale(.97);background:var(--panel2)}
@@ -183,6 +191,13 @@ nav.tabs button.on{color:var(--accent2);background:rgba(227,165,90,.1)}
 .themes button{flex:1;border-radius:12px;padding:6px;background:var(--panel);border:2px solid transparent;font-size:12px;color:var(--muted)}
 .themes button img{width:100%;border-radius:6px;display:block;margin-bottom:4px}
 .themes button.on{border-color:var(--accent);color:var(--text)}
+.psets{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.psets button{border-radius:12px;padding:6px 4px 7px;background:var(--panel);border:2px solid transparent;font-size:11.5px;line-height:1.2;color:var(--muted)}
+.psets button.on{border-color:var(--accent);color:var(--text)}
+.psets .pv{display:flex;justify-content:center;margin-bottom:3px}
+.psets .pv img{width:44%;aspect-ratio:1;display:block}
+.psets .pv img+img{margin-left:-6%}
+@media (max-width:420px){.psets{grid-template-columns:repeat(3,1fr)}}
 .big{font-family:Fraunces,Georgia,serif;font-size:30px;text-align:center;margin:10px 0 2px}
 .sub{text-align:center;color:var(--muted);margin-bottom:16px}
 .row{display:flex;gap:8px;margin-top:10px}
@@ -826,7 +841,7 @@ const store={
   get(k,d){ try{ const v=localStorage.getItem('timber.'+k); return v==null?d:JSON.parse(v);}catch(e){return d;} },
   set(k,v){ try{ localStorage.setItem('timber.'+k,JSON.stringify(v)); }catch(e){} }
 };
-const settings=Object.assign({sound:true,haptics:true,dots:true,last:true,coords:true,autoQueen:false,theme:'walnut'},store.get('settings',{}));
+const settings=Object.assign({sound:true,haptics:true,dots:true,last:true,coords:true,autoQueen:false,theme:'walnut',pieces:'wood'},store.get('settings',{}));
 function saveSettings(){ store.set('settings',settings); }
 
 /* ================= wood art ================= */
@@ -836,6 +851,18 @@ const THEMES={
   ebony:{name:'Ebony & Box',light:'#efdcb5',lg:'#c2a26c',dark:'#4a362a',dg:'#1d120b',frame:'#231912',fg:'#0a0604'}
 };
 function hexRgb(h){ const n=parseInt(h.slice(1),16); return [(n>>16)/255,((n>>8)&255)/255,(n&255)/255]; }
+// Marble / jade: thin dark veins (ridges of "turbulence" noise) plus soft light clouds, like polished stone.
+function stoneFilter(id,seedN,col,strength){
+  const [r,g,b]=hexRgb(col);
+  return `<filter id="${id}" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+  <feTurbulence type="turbulence" baseFrequency="0.035 0.055" numOctaves="4" seed="${seedN}" result="t"/>
+  <feColorMatrix in="t" type="matrix" values="0 0 0 0 ${r.toFixed(3)} 0 0 0 0 ${g.toFixed(3)} 0 0 0 0 ${b.toFixed(3)} ${(-strength).toFixed(2)} 0 0 0 ${(strength*0.2).toFixed(2)}" result="v"/>
+  <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="${seedN+7}" result="n"/>
+  <feColorMatrix in="n" type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.55 0 0 0 -0.28" result="cl"/>
+  <feComposite in="cl" in2="SourceGraphic" operator="in" result="c2"/>
+  <feComposite in="v" in2="SourceGraphic" operator="in" result="v2"/>
+  <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="c2"/><feMergeNode in="v2"/></feMerge></filter>`;
+}
 function grainFilter(id,fx,fy,seedN,col,strength){
   const [r,g,b]=hexRgb(col);
   return `<filter id="${id}" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
@@ -871,9 +898,34 @@ function frameSvg(key){
   <rect width="400" height="400" fill="${t.frame}" filter="url(#f)"/><rect width="400" height="400" fill="url(#s)"/></svg>`;
   return 'url("data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'")';
 }
-const WOOD={
-  w:{lo:'#9a6630',mid:'#d2a362',hi:'#fff1d2',base:'#e9c48a',edge:'#5b3814',grain:'#8a5524',detail:'#5b3814'},
-  b:{lo:'#1c0b05',mid:'#4a2213',hi:'#b0683f',base:'#6c321c',edge:'#0d0502',grain:'#140704',detail:'#d39a6a'}
+// Piece colour sets (Settings > Pieces). lo/mid/hi/base = the side-lit gradient, edge = outline,
+// detail = eyes/notches, grain = wood texture strength (0 = smooth), rim = light/dark outline that keeps
+// pieces readable on any square.
+const PIECE_SETS={
+  wood:{name:'Classic wood',grain:.55,
+    w:{lo:'#9a6630',mid:'#d2a362',hi:'#fff1d2',base:'#e9c48a',edge:'#5b3814',grain:'#8a5524',detail:'#5b3814',rim:'rgba(40,18,2,.35)'},
+    b:{lo:'#1c0b05',mid:'#4a2213',hi:'#b0683f',base:'#6c321c',edge:'#0d0502',grain:'#140704',detail:'#e0a878',rim:'rgba(255,226,186,.42)'}},
+  maple:{name:'Maple & Rosewood',grain:.4,
+    w:{lo:'#b07a3c',mid:'#e3bd7f',hi:'#fff6e3',base:'#f1d6a6',edge:'#6b4219',grain:'#a0692f',detail:'#6b4219',rim:'rgba(50,24,4,.35)'},
+    b:{lo:'#2a0d08',mid:'#5e1f14',hi:'#c0704f',base:'#7a2e1e',edge:'#160604',grain:'#1e0805',detail:'#f0b48a',rim:'rgba(255,214,190,.45)'}},
+  ivory:{name:'Ivory & Ebony',grain:0,
+    w:{lo:'#c4ad86',mid:'#ecdfc4',hi:'#fffdf6',base:'#f7efdd',edge:'#6e5a3a',detail:'#6e5a3a',rim:'rgba(40,28,10,.35)'},
+    b:{lo:'#0c0b0b',mid:'#2a2725',hi:'#8a847d',base:'#3a3633',edge:'#000000',detail:'#ece4d6',rim:'rgba(255,248,236,.5)'}},
+  navy:{name:'Pearl & Navy',grain:0,
+    w:{lo:'#a9b4c2',mid:'#dfe6ee',hi:'#ffffff',base:'#eef2f6',edge:'#4a5868',detail:'#4a5868',rim:'rgba(20,30,50,.35)'},
+    b:{lo:'#0a1430',mid:'#1d2f63',hi:'#7d9be0',base:'#28407e',edge:'#050b1c',detail:'#e3eaff',rim:'rgba(225,235,255,.5)'}},
+  ruby:{name:'Cream & Ruby',grain:0,
+    w:{lo:'#c4ad86',mid:'#ecdfc4',hi:'#fffdf6',base:'#f7efdd',edge:'#6e5a3a',detail:'#6e5a3a',rim:'rgba(40,28,10,.35)'},
+    b:{lo:'#3a0508',mid:'#8a1420',hi:'#f0808a',base:'#a51d2b',edge:'#24030a',detail:'#ffe3e3',rim:'rgba(255,228,228,.5)'}},
+  marble:{name:'Marble & Jade',tex:'stone',grain:9,
+    w:{lo:'#b9b6b0',mid:'#e6e4df',hi:'#ffffff',base:'#f3f1ec',edge:'#6f6b66',grain:'#8f8a84',detail:'#5e5a55',rim:'rgba(30,30,30,.35)'},
+    b:{lo:'#0b3a22',mid:'#1f7a4a',hi:'#9ff0c4',base:'#2f9a62',edge:'#062615',grain:'#0a3d22',detail:'#eafff3',rim:'rgba(220,255,236,.5)'}},
+  cinnabar:{name:'Celadon & Cinnabar',tex:'stone',grain:7,
+    w:{lo:'#8fae94',mid:'#c9e0c6',hi:'#f4fff2',base:'#dcebd8',edge:'#4d6b53',grain:'#6f9a78',detail:'#3f5c45',rim:'rgba(20,40,25,.35)'},
+    b:{lo:'#4a0a04',mid:'#9e2416',hi:'#ff8a6a',base:'#b8321d',edge:'#2a0502',grain:'#5e1006',detail:'#ffe6c8',rim:'rgba(255,230,200,.5)'}},
+  jade:{name:'Cream & Forest',grain:0,
+    w:{lo:'#c4ad86',mid:'#ecdfc4',hi:'#fffdf6',base:'#f7efdd',edge:'#6e5a3a',detail:'#6e5a3a',rim:'rgba(40,28,10,.35)'},
+    b:{lo:'#06240f',mid:'#165a30',hi:'#78d6a2',base:'#1f6e3d',edge:'#03160a',detail:'#e3ffec',rim:'rgba(226,255,236,.5)'}}
 };
 const SHAPES={
   base:'<path d="M22 93 C22 86 28 82.5 34 82 L66 82 C72 82.5 78 86 78 93 Z"/><rect x="28" y="76" width="44" height="8" rx="3.5"/>',
@@ -888,20 +940,27 @@ const DETAIL={
   B:'<path d="M54 28 L45.5 39" stroke-width="2.6" stroke-linecap="round" fill="none"/>',
   N:'<circle cx="43.5" cy="31.5" r="2.2" stroke="none"/><path d="M26.5 51 l2.5 -1.2" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M57 21 C64 27 67 36 66.5 46 M53.5 26 C59 32 61 40 60.5 50" stroke-width="1.4" fill="none" opacity=".55" stroke-linecap="round"/>'
 };
-function pieceSvg(type,color){
-  const w=WOOD[color];
+function pieceSvg(type,color,setKey){
+  const set=PIECE_SETS[setKey||settings.pieces]||PIECE_SETS.wood, w=set[color], gs=set.grain;
+  const filt=set.tex==='stone'?stoneFilter('g',color==='w'?4:12,w.grain,gs):(gs>0?grainFilter('g',0.42,0.02,color==='w'?3:9,w.grain,(color==='w'?2.2:2.6)*gs):'');
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="200" height="200"><defs>
   <linearGradient id="b" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${w.lo}"/><stop offset=".16" stop-color="${w.mid}"/><stop offset=".36" stop-color="${w.hi}"/><stop offset=".52" stop-color="${w.base}"/><stop offset=".8" stop-color="${w.mid}"/><stop offset="1" stop-color="${w.lo}"/></linearGradient>
-  ${grainFilter('g',0.42,0.02,color==='w'?3:9,w.grain,color==='w'?2.2:2.6)}
+  ${filt}
   <radialGradient id="sh" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#000" stop-opacity=".45"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>
   <ellipse cx="51" cy="93" rx="31" ry="5" fill="url(#sh)"/>
-  <g fill="url(#b)" stroke="${w.edge}" stroke-width="1.5" stroke-linejoin="round" filter="url(#g)">${SHAPES.base}${SHAPES[type]}</g>
+  <g fill="none" stroke="${w.rim}" stroke-width="4.2" stroke-linejoin="round">${SHAPES.base}${SHAPES[type]}</g>
+  <g fill="url(#b)" stroke="${w.edge}" stroke-width="1.5" stroke-linejoin="round"${filt?' filter="url(#g)"':''}>${SHAPES.base}${SHAPES[type]}</g>
   <g fill="${w.detail}" stroke="${w.detail}">${DETAIL[type]||''}</g>
   </svg>`;
   return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
 }
 const IMG={};
-for(const c of 'wb') for(const t of 'PNBRQK') IMG[c+t]=pieceSvg(t,c);
+function buildPieces(){ for(const c of 'wb') for(const t of 'PNBRQK') IMG[c+t]=pieceSvg(t,c); }
+buildPieces();
+// Switch piece set live: redraw the images, then repaint everything that shows a piece.
+function applyPieces(){ buildPieces(); $('#brandImg').src=IMG.wN; for(const pe of pieceEls) pe.img.src=pieceImg(pe.p); renderAll(); }
+const psetThumbCache={};
+function psetThumb(k,c){ const key=k+c; return psetThumbCache[key]||(psetThumbCache[key]=pieceSvg(c==='w'?'K':'N',c,k)); }
 const pieceImg=ch=>IMG[(ch===ch.toUpperCase()?'w':'b')+ch.toUpperCase()];
 $('#brandImg').src=IMG.wN;
 
@@ -1084,6 +1143,7 @@ function renderPieces(anim){
       if(!dropped&&dur){ pe.el.classList.remove('hop'); void pe.el.offsetWidth; pe.el.classList.add('hop'); }
       pe.el.classList.remove('lifted');
       placeEl(pe);
+      if(dropped) landFx(pe);
     }
   }
   D.dropEl=null;
@@ -1129,7 +1189,9 @@ function applyTheme(){
 }
 
 /* ================= drag & tap ================= */
-const D={active:false,pe:null,from:-1,pid:null,sx:0,sy:0,x:0,y:0,cx:0,cy:0,tilt:0,scale:1,moved:false,touch:false,raf:0,hover:-1,dropEl:null,wasSelected:false,lift:0};
+const D={active:false,pe:null,from:-1,pid:null,sx:0,sy:0,x:0,y:0,cx:0,cy:0,tilt:0,rx:0,ry:0,scale:1,moved:false,touch:false,raf:0,hover:-1,dropEl:null,wasSelected:false,lift:0};
+const dshadow=document.createElement('div'); dshadow.className='dshadow'; pcLayer.appendChild(dshadow);
+function landFx(pe){ pe.el.classList.remove('land'); void pe.el.offsetWidth; pe.el.classList.add('land'); setTimeout(()=>pe.el.classList.remove('land'),380); }
 function bxy(e){ const r=boardEl.getBoundingClientRect(); return [e.clientX-r.left,e.clientY-r.top]; }
 function computeTargets(from){
   const s=cur(); const map=new Map();
@@ -1154,7 +1216,8 @@ boardEl.addEventListener('pointerdown',e=>{
     D.wasSelected=S.selected===sq;
     select(sq);
     const pe=pieceEls.find(q=>q.s===sq); if(!pe) return;
-    Object.assign(D,{active:true,pe,from:sq,pid:e.pointerId,sx:x,sy:y,moved:false,touch:e.pointerType!=='mouse',hover:-1,lift:0});
+    Object.assign(D,{active:true,pe,from:sq,pid:e.pointerId,sx:x,sy:y,moved:false,touch:e.pointerType!=='mouse',hover:-1,lift:0,rx:0,ry:0});
+    dshadow.classList.add('on');
     const [px,py]=sqXY(sq); D.cx=px+SQ/2; D.cy=py+SQ/2; D.x=x; D.y=y; D.tilt=0; D.scale=1;
     try{ boardEl.setPointerCapture(e.pointerId); }catch(_){}
     pe.el.style.transition='none'; pe.img.style.transition='none'; pe.el.classList.add('lifted');
@@ -1176,22 +1239,33 @@ boardEl.addEventListener('pointermove',e=>{
 });
 function dragLoop(){
   if(!D.active) return;
-  const liftTarget=D.moved&&D.touch?SQ*0.55:0;
+  // Height above the board: a little as soon as it's pressed, more while dragging (most under a finger,
+  // so the piece isn't hidden by it).
+  const liftTarget=D.moved?(D.touch?SQ*0.55:SQ*0.22):SQ*0.08;
   D.lift+=(liftTarget-D.lift)*0.25;
   const tx=D.x, ty=D.y-D.lift;
   const k=D.moved?0.42:0.25;
+  const px=D.cx, py=D.cy;
   D.cx+=(tx-D.cx)*k; D.cy+=(ty-D.cy)*k;
-  const lag=tx-D.cx;
-  D.tilt+=(clamp(lag*0.55,-22,22)-D.tilt)*0.22;
-  const sc=D.touch?1.28:1.14;
+  // Swing like a weighted piece held at the top (z), plus a 3D lean in the direction of travel (x/y).
+  const lag=tx-D.cx, vx=D.cx-px, vy=D.cy-py;
+  D.tilt+=(clamp(lag*0.4,-16,16)-D.tilt)*0.22;
+  D.ry+=(clamp(vx*1.6,-24,24)-D.ry)*0.18;
+  D.rx+=(clamp(vy*1.6,-24,24)-D.rx)*0.18;
+  const h=D.lift/SQ;
+  const sc=(D.touch?1.24:1.12)+h*0.1;
   D.scale+=(sc-D.scale)*0.3;
   D.pe.el.style.transform=`translate(${D.cx-SQ/2}px,${D.cy-SQ/2}px)`;
-  D.pe.img.style.transform=`rotate(${D.tilt.toFixed(2)}deg) scale(${D.scale.toFixed(3)})`;
+  D.pe.img.style.transform=`perspective(${Math.round(SQ*5)}px) rotateX(${D.rx.toFixed(2)}deg) rotateY(${D.ry.toFixed(2)}deg) rotate(${D.tilt.toFixed(2)}deg) scale(${D.scale.toFixed(3)})`;
+  // The shadow stays on the board under the piece: bigger, softer and fainter the higher it's lifted.
+  dshadow.style.transform=`translate(${(D.cx-SQ/2+h*SQ*0.1).toFixed(1)}px,${(D.cy+D.lift-SQ/2).toFixed(1)}px) scale(${(1+h*0.6).toFixed(3)})`;
+  dshadow.style.opacity=(0.95-h*0.75).toFixed(2);
   D.raf=requestAnimationFrame(dragLoop);
 }
 function endDrag(e,cancel){
   if(!D.active||(e&&e.pointerId!==D.pid)) return;
   D.active=false; cancelAnimationFrame(D.raf);
+  dshadow.classList.remove('on');
   try{ boardEl.releasePointerCapture(D.pid); }catch(_){}
   const pe=D.pe; const from=D.from;
   const target=cancel?-1:sqAt(D.x,D.y);
@@ -1206,7 +1280,7 @@ function endDrag(e,cancel){
     attemptMove(from,target,true);
     return;
   }
-  settle(pe,target!==from&&target>=0);
+  settle(pe,target!==from&&target>=0); landFx(pe);
   if(target!==from&&target>=0) SFX.illegal();
   deselect();
 }
@@ -1888,6 +1962,7 @@ function renderPanel(){
     }
   }
   P.innerHTML=h;
+  { const op=P.querySelector('.status .op'), t=op?op.textContent:''; if(op&&t!==renderPanel.lastOp) op.classList.add('new'); renderPanel.lastOp=t; } // gentle pop only when the opening name changes
   const ml=$('#mlist'); if(ml){ const c=ml.querySelector('.cur'); if(c) ml.scrollLeft=c.offsetLeft-ml.clientWidth/2; else ml.scrollLeft=ml.scrollWidth; }
 }
 function renderAll(){ renderStrips(); renderPanel(); renderHL(); }
@@ -2004,11 +2079,13 @@ function openSettings(){
   const tg=(k,label)=>`<div class="toggle"><span>${label}</span><button class="sw ${settings[k]?'on':''}" data-set="${k}" aria-label="${label}"></button></div>`;
   openSheet(`<h2>Settings</h2>
     <h4>Board wood</h4><div class="themes">${Object.entries(THEMES).map(([k,t])=>`<button data-theme="${k}" class="${settings.theme===k?'on':''}"><img src="${boardThumb(k)}" alt="">${t.name}</button>`).join('')}</div>
+    <h4>Pieces</h4><div class="psets">${Object.entries(PIECE_SETS).map(([k,p])=>`<button data-pset="${k}" class="${settings.pieces===k?'on':''}"><span class="pv"><img src="${psetThumb(k,'w')}" alt=""><img src="${psetThumb(k,'b')}" alt=""></span>${p.name}</button>`).join('')}</div>
     <h4>Feel</h4>${tg('sound','Wood sounds')}${tg('haptics','Vibration')}${tg('dots','Show legal moves')}${tg('last','Highlight last move')}${tg('coords','Board coordinates')}${tg('autoQueen','Always promote to queen')}
     <h4>This game</h4><div class="row" style="margin-top:0"><button class="btn" id="copyPgn">Copy moves (PGN)</button></div>
     <p class="note" style="margin-top:16px">No ads and no tracking. Your settings and progress stay on this device.</p>`,'settings');
   $('#sheet').onclick=e=>{
     const sw=e.target.closest('[data-set]'); if(sw){ const k=sw.dataset.set; settings[k]=!settings[k]; sw.classList.toggle('on',settings[k]); saveSettings(); renderLabels(); renderHL(); if(k==='sound'&&settings.sound) SFX.move(); return; }
+    const ps=e.target.closest('[data-pset]'); if(ps){ settings.pieces=ps.dataset.pset; saveSettings(); applyPieces(); document.querySelectorAll('[data-pset]').forEach(b=>b.classList.toggle('on',b===ps)); SFX.move(); return; }
     const th=e.target.closest('[data-theme]'); if(th){ settings.theme=th.dataset.theme; saveSettings(); applyTheme(); document.querySelectorAll('[data-theme]').forEach(b=>b.classList.toggle('on',b===th)); return; }
     if(e.target.id==='copyPgn'){ copyPgn(); }
   };
