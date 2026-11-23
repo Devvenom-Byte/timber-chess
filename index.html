@@ -2173,7 +2173,7 @@ Object.defineProperty(window,'__tc',{value:{OPENING_BOOK,BOOK_BAD,openingEntry,o
    block listing games, changing moves, stealing seats, un-resigning and any non-chess data. */
 const FB_DB='https://timber-chess-default-rtdb.europe-west1.firebasedatabase.app';
 const Fam={
-  state:'ready', myId:null, myName:'', names:{}, avatars:{}, oppOnline:false, lastReact:{},
+  state:'ready', myId:null, myName:'', names:Object.create(null), avatars:Object.create(null), oppOnline:false, lastReact:Object.create(null),
   role:null, ctok:0, timers:[], netOk:false, hostSeen:false, notFound:false,
   es:null, mirror:undefined, gotFirst:false, lastEvent:0, skew:0, pushing:false, pushAgain:false, claiming:false,
   textOff:'Online play needs an internet connection. You can still play the computer, openings and puzzles.',
@@ -2248,7 +2248,7 @@ const Fam={
     const s=sessions.family;
     Object.assign(s,{gid:g.gid,white:null,black:null,creator:g.creator||null,status:'open',resigned:null,drawOffers:{w:null,b:null},over:null,view:null,react:null,created:g.created||Date.now()});
     s.game=newGame(); s.eng.loadUci(START,[]);
-    this.role=role; this.hostSeen=false; this.notFound=false; this.lastReact={}; this.gotFirst=false; this.mirror=undefined;
+    this.role=role; this.hostSeen=false; this.notFound=false; this.lastReact=Object.create(null); this.gotFirst=false; this.mirror=undefined;
     if(g.names) for(const k in g.names){ if(k!==this.myId&&typeof g.names[k]==='string') this.names[k]=g.names[k]; }
     this.ready2=false;
     this.merge({...g,moves:g.moves||[],drawOffers:g.drawOffers||{},status:undefined},'db');
@@ -2294,6 +2294,11 @@ const Fam={
   },
   applyPath(path,data,patch){
     const parts=path.split('/').filter(Boolean);
+    // Never let data from the network name special JavaScript keys (prototype pollution).
+    const bad=k=>k==='__proto__'||k==='constructor'||k==='prototype';
+    const clean=v=>{ if(!v||typeof v!=='object') return v; const o=Array.isArray(v)?[]:{}; for(const k of Object.keys(v)){ if(!bad(k)) o[k]=clean(v[k]); } return o; };
+    if(parts.some(bad)) return;
+    data=clean(data);
     if(!parts.length){ if(patch&&this.mirror&&typeof this.mirror==='object'){ for(const k in data){ if(data[k]===null) delete this.mirror[k]; else this.mirror[k]=data[k]; } } else this.mirror=data; return; }
     if(!this.mirror||typeof this.mirror!=='object') this.mirror={};
     let o=this.mirror; for(let i=0;i<parts.length-1;i++){ const k=parts[i]; if(!o[k]||typeof o[k]!=='object') o[k]={}; o=o[k]; }
