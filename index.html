@@ -247,6 +247,15 @@ details.how summary{cursor:pointer;font-weight:600;margin-top:8px;font-size:14px
 .strip .clock.paused{opacity:.6}
 .tcs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.tcs button{padding:9px 4px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;display:flex;flex-direction:column;align-items:center;gap:2px}
 .tcs button b{font-size:15px}.tcs button span{font-size:11.5px;color:var(--muted)}.tcs button.on{border-color:var(--accent);background:rgba(227,165,90,.16)}
+.backlink{background:none;border:0;color:var(--accent2);font:600 14px Inter,system-ui,sans-serif;padding:2px 2px 8px;cursor:pointer}
+.path{margin-top:10px}.path .item .t span{white-space:normal}
+.path .step{display:flex;align-items:center;gap:10px}
+.stepdot{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;background:rgba(255,255,255,.07);color:var(--muted)}
+.stepdot.done{background:var(--good);color:#14200e}.stepdot.now{background:var(--accent);color:#2a1a0c}
+.coach{display:flex;gap:10px;align-items:center}.coach .go{flex:none}
+.cotarget{font-family:Fraunces,Georgia,serif;font-size:44px;font-weight:700;text-align:center;letter-spacing:1px;margin:2px 0}
+.cobar{height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin:6px 0}.cobar i{display:block;height:100%;background:var(--accent)}
+.coans{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}.coans button{padding:12px 0;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:700 18px Inter,system-ui,sans-serif}
 .segrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .seg{display:flex;background:var(--panel);border-radius:10px;padding:3px;gap:2px}
 .seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;padding:7px 10px;border-radius:8px}
@@ -1557,7 +1566,7 @@ function clockTick(){
   const s=sessions.play, c=s&&s.clock; if(!c||!c.run||s.over) return;
   const side=c.run;
   const left=clockLeft(c,side);
-  if(left<=0){ clockStop(c); c.flag=side; S.token++; S.thinking=false; deselect(); s.over=timeoutResult(s.eng,side); savePlay(); SFX.bad(); renderAll(); setTimeout(()=>showGameOver(s),400); return; }
+  if(left<=0){ clockStop(c); c.flag=side; S.token++; S.thinking=false; deselect(); s.over=timeoutResult(s.eng,side); logGame(s); savePlay(); SFX.bad(); renderAll(); setTimeout(()=>showGameOver(s),400); return; }
   if(left<10000&&!c.warned[side]){ c.warned[side]=1; SFX.illegal(); buzz(40); } // one warning at 10 seconds
   if(S.tab==='play') clockPaint();
 }
@@ -1607,6 +1616,10 @@ function rebuildSans(game){ const e=EngineFactory(); e.setFen(game.start); const
   for(const u of game.moves){ const m=e.fromUci(u); if(!m) break; sans.push(e.san(m)); ok.push(u); e.make(m); }
   game.moves=ok; return sans; }
 const cur=()=>sessions[S.tab];
+// Finished games against the computer, newest last (kept small). Used by the course and progress.
+const gameLog=(a=>Array.isArray(a)?a.filter(g=>g&&Number.isInteger(g.lvl)&&['win','loss','draw'].includes(g.res)).slice(-200):[])(store.get('gameLog',[]));
+function logGame(s){ if(s!==sessions.play||s.kind!=='cpu'||!s.over||s.logged===s.game.moves.length) return; s.logged=s.game.moves.length;
+  const res=s.over.win?(s.over.win===s.human?'win':'loss'):'draw'; gameLog.push({lvl:Math.min(s.level,s.minLvl??s.level),res,n:s.game.moves.length,t:Date.now()}); if(gameLog.length>200) gameLog.splice(0,gameLog.length-200); store.set('gameLog',gameLog); }
 function savePlay(){ const s=sessions.play, c=s.clock; store.set('play',{game:{start:s.game.start,moves:s.game.moves},kind:s.kind,level:s.level,human:s.human,orientation:s.orientation,clock:c?{k:c.k,w:clockLeft(c,'w'),b:clockLeft(c,'b'),flag:c.flag,paused:c.paused}:null}); }
 
 function humanCanMove(color){
@@ -1615,7 +1628,7 @@ function humanCanMove(color){
     case 'play': return s.kind==='local'||color===s.human;
     case 'openings': return s.op&&!s.done&&color===s.op.side;
     case 'puzzles': return (s.idx>=0||!!s.tp)&&!s.solved&&!s.checking&&color===s.side;
-    case 'learn': if(s.eg) return !s.done&&!s.checking&&color===s.eg.side; if(s.fg) return s.awaitGuess&&!s.checking&&color===(s.game.moves.length%2?'b':'w'); return !!s.les&&!s.done&&!s.checking&&color==='w';
+    case 'learn': if(s.co) return false; if(s.eg) return !s.done&&!s.checking&&color===s.eg.side; if(s.fg) return s.awaitGuess&&!s.checking&&color===(s.game.moves.length%2?'b':'w'); return !!s.les&&!s.done&&!s.checking&&color==='w';
     case 'family': return Fam.canIMove(color);
   }
   return false;
@@ -1699,6 +1712,7 @@ function renderHL(){
   if(B3){ const live=s.view===null, marks=S.flashes.map(f=>({sq:f.s,color:f.cls==='wrong'?'red':'green'}));
     if(S.tab==='learn'&&s.les&&!s.done&&!s.checking){ const st=learnStep(s); if(st&&st.goal.to) for(const t of st.goal.to) marks.push({sq:nameSq(t),color:'blue'}); }
     for(const t of egMarks(s)) marks.push({sq:nameSq(t),color:'blue'});
+    for(const q of coMarks(s)) marks.push({sq:q,color:'blue'});
     let check=null; if(eng.inCheck()){ const k=eng.kingSquare(); check=(k>>4)*8+(k&7); }
     B3.setHighlights({lastMove:last&&(settings.last||S.tab==='puzzles')?[last.slice(0,2),last.slice(2,4)]:null, selected:live?S.selected:-1, targets:settings.dots&&live?S.targets:[], check, hint:arrowMove()?[arrowMove().slice(0,2),arrowMove().slice(2,4)]:null, marks});
     return; }
@@ -1711,6 +1725,7 @@ function renderHL(){
   for(const f of S.flashes) put(f.s,f.cls);
   if(S.tab==='learn'&&s.les&&!s.done&&!s.checking){ const st=learnStep(s); if(st&&st.goal.to) for(const t of st.goal.to) put(nameSq(t),'goal'); }
   for(const t of egMarks(s)) put(nameSq(t),'zone');
+  for(const q of coMarks(s)) put(q,'goal');
   hlLayer.innerHTML=h;
   let d='';
   if(settings.dots&&S.selected>=0) for(const [t] of S.targets){ const [x,y]=sqXY(t); const occ=displayed().board[t]; d+=`<div class="dot${occ?' cap':''}" style="transform:translate(${x}px,${y}px)"></div>`; }
@@ -1735,7 +1750,7 @@ function renderLabels(){
   if(o==='w') ranks.reverse(); else files.reverse();
   $('#flabels').innerHTML=files.map(f=>`<span>${f}</span>`).join('');
   $('#rlabels').innerHTML=ranks.map(r=>`<span>${r}</span>`).join('');
-  $('#frame').classList.toggle('nocoords',!settings.coords);
+  const co=S.tab==='learn'&&sessions.learn&&sessions.learn.co; $('#frame').classList.toggle('nocoords',co?!co.labels:!settings.coords);
 }
 function applyTheme(){
   if(B3){ const t=THEMES[settings.theme]; B3.setTheme({light:t.light,lightGrain:t.lg,dark:t.dark,darkGrain:t.dg}); }
@@ -1779,6 +1794,7 @@ function off3D(){
 function b3Down(sq){
   ac(); if(sq<0){ deselect(); return false; }
   const s=cur();
+  if(S.tab==='learn'&&s.co){ if(s.co.running&&s.co.mode==='find') coAnswer(sq); return false; }
   if(s.view!==null){ toast('Viewing an earlier move — tap ⏭ to go back to the game'); return false; }
   if(S.busy||$('#promo').style.display==='flex') return false;
   if(S.selected>=0&&S.targets.has(sq)){ attemptMove(S.selected,sq,false); return false; }
@@ -1813,6 +1829,7 @@ boardEl.addEventListener('pointerdown',e=>{
   const [x,y]=bxy(e); const sq=sqAt(x,y); if(sq<0) return;
   e.preventDefault();
   const s=cur();
+  if(S.tab==='learn'&&s.co){ if(s.co.running&&s.co.mode==='find') coAnswer(sq); return; }
   if(s.view!==null){ toast('Viewing an earlier move — tap ⏭ to go back to the game'); return; }
   if(S.busy) return;
   if(S.selected>=0&&S.targets.has(sq)){ attemptMove(S.selected,sq,false); return; }
@@ -1980,7 +1997,7 @@ function afterMove(s){
   if(s===sessions.play) savePlay();
   if(s===sessions.play){
     const st=statusOf(s);
-    if(st!=='ongoing'){ clockStop(s.clock); s.over=resultText(st,s.eng.turn()?'b':'w'); renderAll(); setTimeout(()=>showGameOver(s),700); return; }
+    if(st!=='ongoing'){ clockStop(s.clock); s.over=resultText(st,s.eng.turn()?'b':'w'); logGame(s); renderAll(); setTimeout(()=>showGameOver(s),700); return; }
     renderAll();
     if(s.kind==='cpu'&&(s.eng.turn()?'b':'w')!==s.human) cpuMove();
     return;
@@ -2009,12 +2026,12 @@ function undo(){
   let n=1;
   if(s.kind==='cpu'){ const stm=s.eng.turn()?'b':'w'; n=stm===s.human?2:1; if(s.game.moves.length<n) n=s.game.moves.length; }
   s.game.moves.splice(-n); s.game.sans.splice(-n);
-  s.eng.loadUci(s.game.start,s.game.moves); s.over=null; s.view=null; S.hint=null; deselect(); clockUndo(s);
+  s.eng.loadUci(s.game.start,s.game.moves); s.over=null; s.view=null; S.hint=null; deselect(); clockUndo(s); s.logged=-1;
   renderPieces({ms:200}); renderAll(); savePlay(); SFX.move();
   if(s.kind==='cpu'&&(s.eng.turn()?'b':'w')!==s.human) cpuMove();
 }
 function startPlay(kind,colorPref,level,tc){
-  const s=sessions.play; S.token++; S.thinking=false; s.clock=clockNew(tc===undefined?(s.clock&&s.clock.k):tc);
+  const s=sessions.play; S.token++; S.thinking=false; s.minLvl=level; s.logged=-1; s.clock=clockNew(tc===undefined?(s.clock&&s.clock.k):tc);
   s.kind=kind; s.level=level; s.human=colorPref==='r'?(Math.random()<.5?'w':'b'):colorPref;
   s.game=newGame(); s.eng.loadUci(START,[]); s.over=null; s.view=null; s.orientation=kind==='cpu'?s.human:'w';
   S.hint=null; deselect(); savePlay();
@@ -2135,7 +2152,7 @@ const pzStreak=(p=>p&&typeof p==='object'?{now:Number(p.now)||0,best:Number(p.be
 let pzLevel=store.get('pzLevel','easy'); if(!PZ_BANDS.some(b=>b[0]===pzLevel)) pzLevel='easy';
 const pzFiles=new Map();
 function pzFetch(name){ // one download per file; a failed download can be retried
-  if(!pzFiles.has(name)) pzFiles.set(name,fetch(PUZZLE_DATA+name+'.json').then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); }).catch(e=>{ pzFiles.delete(name); throw e; }));
+  if(!pzFiles.has(name)) pzFiles.set(name,fetch(PUZZLE_DATA+name+'.json').then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); }).then(p=>{ let add=0; if(p&&p.bands&&typeof p.theme==='string') for(const [b,list] of Object.entries(p.bands)) if(Array.isArray(list)) for(const r of list) if(pzDone(r[0])&&!pzThemeOf[r[0]]){ pzThemeOf[r[0]]=p.theme; pzBandOf[r[0]]=b; add++; } if(add){ store.set('pzThemeOf',pzThemeOf); store.set('pzBandOf',pzBandOf); } return p; }).catch(e=>{ pzFiles.delete(name); throw e; }));
   return pzFiles.get(name);
 }
 const pzDone=id=>Object.prototype.hasOwnProperty.call(pzProg,id);
@@ -2168,7 +2185,7 @@ async function themeAfter(s){
   if(n>=t.line.length||s.eng.status()==='checkmate'){
     s.solved=true; s.checking=false;
     const firstEver=!pzDone(t.id); // a retry never improves a result
-    if(firstEver) pzProg[t.id]=t.helped?2:1; store.set('pzProg',pzProg);
+    if(firstEver){ pzProg[t.id]=t.helped?2:1; pzThemeOf[t.id]=t.theme; pzBandOf[t.id]=t.band; store.set('pzThemeOf',pzThemeOf); store.set('pzBandOf',pzBandOf); } store.set('pzProg',pzProg);
     if(firstEver){ pzStreak.now=t.helped?0:pzStreak.now+1; pzStreak.best=Math.max(pzStreak.best,pzStreak.now); store.set('pzStreak',pzStreak); }
     s.msg=t.helped?'Solved! ✓ Try the next one.':(pzStreak.now>=3&&firstEver?`Solved first try! ★ ${pzStreak.now} in a row 🔥`:'Solved first try! ★'); s.msgType='good'; renderAll(); setTimeout(()=>SFX.win(),300); return;
   }
@@ -2234,7 +2251,7 @@ function loadLearnStep(s){
   if(S.tab==='learn'){ renderLabels(); renderPieces({instant:true}); renderAll(); }
 }
 function startLesson(les){
-  const s=sessions.learn; s.fg=null; s.eg=null; s.egRun=(s.egRun||0)+1; s.awaitGuess=false; s.les=les; s.step=0; s.done=false; s.msg=''; s.msgType='';
+  const s=sessions.learn; S.token++; s.fg=null; s.eg=null; s.co=null; s.egRun=(s.egRun||0)+1; s.awaitGuess=false; s.les=les; s.step=0; s.done=false; s.msg=''; s.msgType='';
   loadLearnStep(s);
   if(S.tab!=='learn') switchTab('learn',true);
 }
@@ -2364,7 +2381,7 @@ for(const g of FAMOUS){ g.uci=sanToUci(g.moves); g.sans=g.moves.split(' '); g.no
 const fgDone=store.get('fgDone',{});
 function startFamous(g){
   const s=sessions.learn; S.token++;
-  s.egRun=(s.egRun||0)+1; Object.assign(s,{les:null,eg:null,fg:g,guess:store.get('fgGuess',true),awaitGuess:false,tries:0,right:0,asked:0,checking:false,done:false,msg:'',msgType:'',view:null,over:null,orientation:g.hero});
+  s.egRun=(s.egRun||0)+1; Object.assign(s,{les:null,eg:null,co:null,fg:g,guess:store.get('fgGuess',true),awaitGuess:false,tries:0,right:0,asked:0,checking:false,done:false,msg:'',msgType:'',view:null,over:null,orientation:g.hero});
   s.game=newGame(); s.eng.loadUci(START,[]); S.hint=null; S.selected=-1; S.targets=new Map();
   if(S.tab!=='learn') switchTab('learn',true); else { renderLabels(); renderPieces({instant:true}); renderAll(); }
   fgPrompt(s);
@@ -2467,7 +2484,7 @@ const egGoalText=e=>e.goal==='mate'?'Goal: checkmate the king. Watch out for sta
 const starsHTML=n=>{ n=Math.max(0,Math.min(3,n|0)); return `<span class="stars" aria-label="${n} of 3 stars">${'★'.repeat(n)}<i>${'★'.repeat(3-n)}</i></span>`; };
 function startEndgame(e){
   const s=sessions.learn; s.egRun=(s.egRun||0)+1; // cancels any reply still being computed for an earlier drill
-  Object.assign(s,{les:null,fg:null,eg:e,awaitGuess:false,done:false,ok:false,checking:false,hints:0,msg:'',msgType:'',view:null,over:null,orientation:e.side,showHow:!egStars[e.id]});
+  Object.assign(s,{les:null,fg:null,co:null,eg:e,awaitGuess:false,done:false,ok:false,checking:false,hints:0,msg:'',msgType:'',view:null,over:null,orientation:e.side,showHow:!egStars[e.id]});
   s.game=newGame(e.fen); s.eng.loadUci(e.fen,[]); S.hint=null; S.selected=-1; S.targets=new Map();
   if(S.tab!=='learn') switchTab('learn',true); else { renderLabels(); renderPieces({instant:true}); renderAll(); }
   if((s.eng.turn()?'b':'w')!==e.side){ s.msg='The computer moves first…'; renderPanel(); egReply(s); }
@@ -2540,6 +2557,89 @@ function openEndgames(){
   const items=ENDGAMES.map(e=>{ const h=e.level!==lv?`<h4>${(lv=e.level)}</h4>`:''; return h+`<button class="item" data-eg="${e.id}"><div class="t"><b>${esc(e.title)}</b><span>${esc(e.about)}</span></div>${egStars[e.id]?starsHTML(egStars[e.id]):'<span class="tag">New</span>'}</button>`; }).join('');
   openSheet(`<h2>Endgame trainer</h2><p class="note">Practise the endings every player should know, against the computer. Each one comes with a step-by-step plan. Earn up to 3 stars by finishing in few moves.</p><div class="list">${items}</div>`,'endgames');
   $('#sheet').onclick=ev=>{ const b=ev.target.closest('[data-eg]'); if(b){ closeSheet(); $('#sheet').onclick=null; startEndgame(EG_BY[b.dataset.eg]); } };
+}
+
+/* ================= coordinates trainer ================= */
+// Learn the names of the squares. "Find": a square name is shown, tap that square. "Name": a square
+// glows, pick its name. 30-second rounds; the best score is kept for each mode and side.
+const coBest=(p=>{ const o={}; if(p&&typeof p==='object') for(const k of ['find_w','find_b','name_w','name_b']) if(Number.isInteger(p[k])&&p[k]>=0&&p[k]<1000) o[k]=p[k]; return o; })(store.get('coBest',{}));
+const CO_ROUND=30000;
+function startCoords(){
+  const s=sessions.learn; S.token++; s.egRun=(s.egRun||0)+1;
+  Object.assign(s,{les:null,fg:null,eg:null,co:{mode:(s.co&&s.co.mode)||'find',side:(s.co&&s.co.side)||'w',labels:s.co?s.co.labels:true,running:false,score:0,miss:0,target:-1,opts:[],end:0,last:null},awaitGuess:false,done:false,checking:false,msg:'',msgType:'',view:null,over:null});
+  s.orientation=s.co.side; s.game=newGame(); s.eng.loadUci(START,[]); S.hint=null; S.selected=-1; S.targets=new Map();
+  if(S.tab!=='learn') switchTab('learn',true); else { renderLabels(); renderPieces({instant:true}); renderAll(); }
+}
+const sqLabel=q=>'abcdefgh'[q%8]+(1+(q>>3));
+function coNext(c){ let t; do t=(Math.random()*64)|0; while(t===c.target); c.target=t;
+  if(c.mode==='name'){ const near=[t^1,t^8,t^9,t+2&63,t^16,(t+8)&63].filter(q=>q!==t&&q>=0&&q<64); const o=new Set([t]); while(o.size<4) o.add(near.length?near.splice((Math.random()*near.length)|0,1)[0]:(Math.random()*64)|0); c.opts=[...o].sort(()=>Math.random()-.5); } }
+let coTimer=0;
+function coStart(){ const s=sessions.learn, c=s.co; if(!c) return; Object.assign(c,{running:true,score:0,miss:0,end:performance.now()+CO_ROUND,last:null}); coNext(c); renderLabels(); renderAll();
+  clearInterval(coTimer); coTimer=setInterval(()=>{ const left=c.end-performance.now(); const bar=document.querySelector('.cobar i'); if(bar) bar.style.width=Math.max(0,left/CO_ROUND*100)+'%'; if(sessions.learn.co!==c||S.tab!=='learn') coStop(c,true); else if(left<=0) coStop(c); },100); }
+function coStop(c,cut){ clearInterval(coTimer); if(!c.running) return; c.running=false; if(cut){ c.last=null; return; } const k=c.mode+'_'+c.side, rec=c.score>(coBest[k]||0);
+  if(rec){ coBest[k]=c.score; store.set('coBest',coBest); } c.last={score:c.score,miss:c.miss,rec}; if(rec&&c.score) SFX.win(); renderLabels(); if(sessions.learn.co===c) renderAll(); }
+function coAnswer(sq){ const s=sessions.learn, c=s.co; if(!c||!c.running) return;
+  if(sq===c.target){ c.score++; flash(sq,'right'); SFX.good(); coNext(c); }
+  else { c.miss++; flash(sq,'wrong'); if(c.mode==='find') flash(c.target,'right'); SFX.bad(); buzz(30); }
+  renderAll(); }
+const coMarks=s=>S.tab==='learn'&&s.co&&s.co.running&&s.co.mode==='name'?[s.co.target]:[];
+function coPanelHTML(s){
+  const c=s.co, k=c.mode+'_'+c.side, seg=(name,val,opts)=>`<div class="seg" style="margin-top:8px">${opts.map(([v,t])=>`<button data-act="coset" data-k="${name}" data-v="${v}" class="${val===v?'on':''}" ${c.running?'disabled':''}>${t}</button>`).join('')}</div>`;
+  if(c.running){ const left=Math.max(0,c.end-performance.now());
+    return `<div class="card"><h3>${c.mode==='find'?'Tap this square':'Which square is glowing?'} <span style="font-size:12px;color:var(--muted);font-family:Inter">score ${c.score}</span></h3>${c.mode==='find'?`<div class="cotarget">${sqLabel(c.target)}</div>`:`<div class="coans">${c.opts.map(q=>`<button data-act="coans" data-v="${q}">${sqLabel(q)}</button>`).join('')}</div>`}<div class="cobar"><i style="width:${left/CO_ROUND*100}%"></i></div></div><div class="controls"><button class="btn" data-act="costop">Stop</button></div>`; }
+  const last=c.last?`<p style="margin-top:8px"><b>${c.last.score} correct</b>${c.last.miss?`, ${c.last.miss} wrong`:''}.${c.last.rec&&c.last.score?' 🎉 New best!':''}</p>`:'';
+  return `<div class="card"><h3>Board coordinates</h3><p>Every square has a name: a <b>letter</b> for the column (a to h, left to right for White) and a <b>number</b> for the row (1 to 8, from White's side). So <b>e4</b> is column e, row 4. Knowing them lets you read chess books and follow lessons.</p>${seg('mode',c.mode,[['find','Find the square'],['name','Name the square']])}${seg('side',c.side,[['w','As White'],['b','As Black']])}${seg('labels',c.labels?'on':'off',[['on','Letters shown'],['off','Letters hidden']])}
+    <p style="font-size:13px;color:var(--muted);margin-top:8px">30 seconds. Best: ${coBest[k]||0}</p>${last}</div><div class="controls"><button class="btn primary" data-act="costart">${c.last?'Again':'Start'}</button></div>`;
+}
+
+/* ================= the course: a guided path ================= */
+// One ordered path through everything in the app, from first moves to expert endings. Each step knows
+// how to check itself from progress the app already saves, and how to take you there.
+const pzCount=theme=>Object.keys(pzProg).filter(id=>(pzThemeOf[id]||'')===theme).length;
+const pzThemeOf=(p=>p&&typeof p==='object'?p:{})(store.get('pzThemeOf',{})); // puzzle id -> theme, recorded when solved
+const wins=lvl=>gameLog.filter(g=>g.res==='win'&&g.lvl>=lvl).length;
+const COURSE=[
+  {level:'First steps',items:[
+    {t:'Meet the pieces',d:'How the pawn, rook, bishop, queen, knight and king move.',done:()=>['pawn','rook','bishop','queen','knight','king'].every(i=>learnDone[i]),go:()=>startLesson(LESSONS.find(l=>!learnDone[l.id])||LESSONS[0])},
+    {t:'Check and checkmate',d:'Attack the king, and trap it for good.',done:()=>learnDone.check&&learnDone.mate,go:()=>startLesson(LESSONS.find(l=>l.id==='check'&&!learnDone.check)||LESSONS.find(l=>l.id==='mate'))},
+    {t:'Special moves',d:'Castling and en passant. (Promotion is in the pawn lesson.)',done:()=>!!learnDone.special,go:()=>startLesson(LESSONS.find(l=>l.id==='special'))},
+    {t:'Your first game',d:'Play a whole game against Twig, the friendliest computer.',done:()=>gameLog.length>0,go:()=>coursePlay(0)},
+    {t:'What the pieces are worth',d:'A 2-minute read: why a rook is worth more than a knight.',done:()=>!!readDone.values,go:()=>openReading(READINGS.findIndex(r=>r.id==='values'))},
+    {t:'Grab free pieces',d:'Solve 3 "Free pieces" puzzles.',done:()=>pzCount('hangingPiece')>=3,go:()=>startThemePuzzle('hangingPiece','easy')},
+    {t:'Mate in one',d:'Solve 5 "Mate in 1" puzzles.',done:()=>pzCount('mateIn1')>=5,go:()=>startThemePuzzle('mateIn1','easy')},
+    {t:'Checkmate with a queen',d:'Checkmate with king and queen, without stalemate (a stalemate is only a draw).',done:()=>!!egStars.queen,go:()=>startEndgame(EG_BY.queen)}]},
+  {level:'Getting better',items:[
+    {t:'Know the board',d:'Learn the square names: get 8 right in 30 seconds.',done:()=>Math.max(coBest.find_w||0,coBest.find_b||0,coBest.name_w||0,coBest.name_b||0)>=8,go:startCoords},
+    {t:'The golden rules of the opening',d:'A 3-minute read.',done:()=>!!readDone.open,go:()=>openReading(READINGS.findIndex(r=>r.id==='open'))},
+    {t:'Learn an opening',d:'Pick any opening and play its moves through to the end.',done:()=>Object.keys(opDone).length>0,go:()=>{ switchTab('openings'); }},
+    {t:'Forks',d:'Solve 5 fork puzzles.',done:()=>pzCount('fork')>=5,go:()=>startThemePuzzle('fork','easy')},
+    {t:'Pins',d:'Solve 3 pin puzzles.',done:()=>pzCount('pin')>=3,go:()=>startThemePuzzle('pin','easy')},
+    {t:'Checkmate with a rook',d:'Checkmate with king and rook.',done:()=>!!egStars.rook,go:()=>startEndgame(EG_BY.rook)},
+    {t:'Review a game',d:'After a game, tap Review to see your best moves and mistakes.',done:()=>(+store.get('reviews',0)||0)>0,go:()=>{ switchTab('play'); toast('Finish a game, then tap Review.',3000); }},
+    {t:'How to think before every move',d:'A 3-minute read: never leave a piece where it can be taken for free.',done:()=>!!readDone.think,go:()=>openReading(READINGS.findIndex(r=>r.id==='think'))},
+    {t:`Beat ${LEVELS[1].name}`,d:`Win a game against ${LEVELS[1].name} or any stronger computer.`,done:()=>wins(1)>0,go:()=>coursePlay(1)}]},
+  {level:'Club player',items:[
+    {t:'Mate in two',d:'Solve 5 "Mate in 2" puzzles.',done:()=>pzCount('mateIn2')>=5,go:()=>startThemePuzzle('mateIn2','medium')},
+    {t:'Discovered attacks and skewers',d:'Solve 3 of each.',done:()=>pzCount('discoveredAttack')>=3&&pzCount('skewer')>=3,go:()=>startThemePuzzle(pzCount('discoveredAttack')>=3?'skewer':'discoveredAttack','medium')},
+    {t:'A famous game',d:'Replay Morphy\'s Opera Game.',done:()=>!!fgDone.opera,go:()=>startFamous(FAMOUS.find(g=>g.id==='opera'))},
+    {t:'King and pawn endings',d:'Win "King in front of the pawn", and save the draw using the opposition.',done:()=>!!(egStars.kingfirst&&egStars.opposition),go:()=>startEndgame(EG_BY[egStars.kingfirst?'opposition':'kingfirst'])},
+    {t:`Beat ${LEVELS[2].name}`,d:`Win a game against ${LEVELS[2].name} or any stronger computer.`,done:()=>wins(2)>0,go:()=>coursePlay(2)},
+    {t:`Beat ${LEVELS[3].name}`,d:`Win a game against ${LEVELS[3].name} or any stronger computer.`,done:()=>wins(3)>0,go:()=>coursePlay(3)}]},
+  {level:'Expert',items:[
+    {t:'Rook endings',d:'Win the Lucena, and save the draw in the Philidor.',done:()=>!!(egStars.lucena&&egStars.philidor),go:()=>startEndgame(EG_BY[egStars.lucena?'philidor':'lucena'])},
+    {t:'Hard tactics',d:'Solve 10 puzzles from the Hard level, any theme.',done:()=>Object.keys(pzProg).filter(id=>pzBandOf[id]==='hard').length>=10,go:()=>startThemePuzzle('sacrifice','hard')},
+    {t:`Beat ${LEVELS[LEVELS.length-1].name}`,d:'Win a game against the strongest computer.',done:()=>wins(LEVELS.length-1)>0,go:()=>coursePlay(LEVELS.length-1)}]}];
+// Start a course game, but never throw away a game that is still going.
+function coursePlay(lvl){ const p=sessions.play; if(p.game.moves.length&&!p.over){ switchTab('play'); toast('Finish this game first, or tap New to start another.',3200); return; } startPlay('cpu','w',lvl,'off'); }
+const pzBandOf=(p=>p&&typeof p==='object'?p:{})(store.get('pzBandOf',{}));
+const courseSteps=()=>COURSE.flatMap(l=>l.items);
+function courseNext(){ const st=courseSteps(); const i=st.findIndex(x=>!x.done()); return i<0?null:{i,step:st[i],total:st.length}; }
+function courseGo(step){ closeSheet(); step.go(); }
+function openCourse(){
+  const nx=courseNext(); let n=0;
+  const html=COURSE.map(l=>`<h4>${esc(l.level)}</h4><div class="list">${l.items.map(x=>{ const i=n++, d=x.done(), now=nx&&nx.i===i; return `<button class="item step" data-step="${i}"><span class="stepdot ${d?'done':now?'now':''}">${d?'✓':i+1}</span><div class="t"><b>${esc(x.t)}</b><span>${esc(x.d)}</span></div>${now?'<span class="tag">Next</span>':''}</button>`; }).join('')}</div>`).join('');
+  openSheet(`<h2>Your chess path</h2><p class="note">${nx?`Step ${nx.i+1} of ${nx.total}. Follow the steps in order, or jump to any of them.`:'You have finished the whole path. Brilliant! Keep playing, solving and reviewing.'}</p><div class="path">${html}</div>`,'course');
+  $('#sheet').onclick=e=>{ const b=e.target.closest('[data-step]'); if(b) courseGo(courseSteps()[+b.dataset.step]); };
 }
 
 // Readings: short articles. Written in plain language; body is trusted static HTML.
@@ -2633,7 +2733,7 @@ function openReading(i){
   $('#sheet').onclick=e=>{ if(e.target.closest('#rdBack')) openReadings(); else if(e.target.closest('#rdNext')) openReading(i+1); };
 }
 // Read-only handle for automated tests.
-Object.defineProperty(window,'__tc',{value:{timeoutResult,clockFmt,ENDGAMES,startEndgame,get egStars(){ return egStars; },get pzStreak(){ return pzStreak; },startThemePuzzle,PZ_THEMES,get pzProg(){ return pzProg; },startReview,rvDone,get B3(){ return B3; },get S(){ return S; },enable3D,off3D,settings,OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
+Object.defineProperty(window,'__tc',{value:{startCoords,coAnswer,courseNext,COURSE,get coBest(){ return coBest; },get gameLog(){ return gameLog; },timeoutResult,clockFmt,ENDGAMES,startEndgame,get egStars(){ return egStars; },get pzStreak(){ return pzStreak; },startThemePuzzle,PZ_THEMES,get pzProg(){ return pzProg; },startReview,rvDone,get B3(){ return B3; },get S(){ return S; },enable3D,off3D,settings,OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
 
 /* ================= family (online) ================= */
 /* Family games over Firebase Realtime Database.
@@ -2942,6 +3042,7 @@ function renderStrips(){
   } else if(S.tab==='openings'){ const c=s.op?s.op.side:'w', o=c==='w'?'b':'w'; info[c]={name:'You',av:pimg(c)}; info[o]={name:'Opening book',av:'📖'}; }
   else if(S.tab==='puzzles'){ const c=s.side||'w', o=c==='w'?'b':'w'; info[c]={name:'You',av:pimg(c)}; info[o]={name:'Defender',av:'🛡️'}; }
   else if(S.tab==='learn'&&s.fg){ info.w={name:s.fg.white,sub:'White',av:pimg('w')}; info.b={name:s.fg.black,sub:'Black',av:pimg('b')}; }
+  else if(S.tab==='learn'&&s.co){ info.w={name:s.co.side==='w'?'You':'White',av:pimg('w'),nocaps:true}; info.b={name:s.co.side==='b'?'You':'Black',av:pimg('b'),nocaps:true}; }
   else if(S.tab==='learn'&&s.eg){ const me=s.eg.side, op=me==='w'?'b':'w'; info[me]={name:'You',av:pimg(me),nocaps:true}; info[op]={name:s.eg.goal==='hold'?'Attacker':'Defender',sub:'Computer',av:s.eg.goal==='hold'?'⚔️':'🛡️',nocaps:true}; }
   else if(S.tab==='learn'){ info.w={name:'You',av:pimg('w'),nocaps:true}; info.b={name:'Coach',sub:'Learn to play',av:'🎓',nocaps:true}; }
   else {
@@ -3015,7 +3116,9 @@ function renderPanel(){
       h+=`<div class="controls"><button class="btn" data-act="pzlist">${ICON.list}List</button><button class="btn" data-act="pzclue" ${s.solved?'disabled':''}>Clue</button><button class="btn" data-act="hint" ${s.solved||s.checking||S.busy?'disabled':''}>${ICON.bulb}Hint</button><button class="btn" data-act="pzretry">${ICON.retry}Retry</button><button class="btn ${s.solved?'primary':''}" data-act="pznext">Next</button></div>`;
     }
   } else if(S.tab==='learn'){
-    if(s.eg) h+=egPanelHTML(s);
+    if(s.les||s.fg||s.eg||s.co) h+=`<button class="backlink" data-act="learnhome">‹ Learn home</button>`;
+    if(s.co) h+=coPanelHTML(s);
+    else if(s.eg) h+=egPanelHTML(s);
     else if(s.fg){
       const g=s.fg, n=s.game.moves.length, end=n===g.uci.length, note=n?g.noteAt[n-1]:'';
       const last=n?`<b>${Math.ceil(n/2)}${n%2?'.':'...'} ${esc(g.markAt[n-1]||g.sans[n-1])}</b> `:'';
@@ -3028,7 +3131,10 @@ function renderPanel(){
       h+=`<div class="controls"><button class="btn" data-act="fglist">${ICON.list}Games</button><button class="btn" data-act="fgstart" ${n?'':'disabled'} aria-label="Back to start">⏮</button><button class="btn" data-act="fgprev" ${n&&!s.checking?'':'disabled'} aria-label="Previous move">${ICON.prev}</button>${s.awaitGuess?`<button class="btn" data-act="hint" ${s.checking?'disabled':''}>${ICON.bulb}Hint</button><button class="btn" data-act="fgnext" ${s.checking?'disabled':''}>Show me</button>`:`<button class="btn primary" data-act="fgnext" ${end?'disabled':''} aria-label="Next move">${ICON.next}</button>`}<button class="btn ${s.guess?'primary':''}" data-act="fgguess">Guess ${s.guess?'on':'off'}</button></div>`;
     }
     else if(!s.les){ const n=LESSONS.filter(l=>learnDone[l.id]).length, nf=FAMOUS.filter(g=>fgDone[g.id]).length, nr=READINGS.filter(r=>readDone[r.id]).length;
-      h+=`<div class="card"><h3>Learn chess</h3><p>Start with the basics, then learn from the masters.</p></div><div class="list learnhub">
+      const nx=courseNext();
+      h+=`<div class="card coach"><div style="flex:1;min-width:0"><h3>🧭 Your chess path</h3><p>${nx?`Step ${nx.i+1} of ${nx.total}: <b>${esc(nx.step.t)}</b>. ${esc(nx.step.d)}`:'Path complete! You have done every step.'}</p></div>${nx?'<button class="btn primary go" data-act="coursego">Go</button>':''}</div><div class="list learnhub">
+        <button class="item" data-act="course"><div class="t"><b>🗺️ See the whole path</b><span>Every step from your first move to expert endings, with your progress</span></div></button>
+        <button class="item" data-act="coords"><div class="t"><b>🎯 Board coordinates</b><span>Learn the square names (e4, g7…) with a 30-second game</span></div></button>
         <button class="item" data-act="lsnext"><div class="t"><b>🎓 Lessons for beginners</b><span>How the pieces move, check, checkmate and special moves · ${n} of ${LESSONS.length} done</span></div></button>
         <button class="item" data-act="fglist"><div class="t"><b>🏆 Famous games</b><span>Replay games by Morphy, Anderssen, Fischer and more, and guess their moves · ${nf} of ${FAMOUS.length} seen</span></div></button>
         <button class="item" data-act="eglist"><div class="t"><b>♔ Endgame trainer</b><span>Checkmate with a queen or rook, win pawn races, hold a draw. Step-by-step plans, beginner to expert · ${ENDGAMES.filter(e=>egStars[e.id]).length} of ${ENDGAMES.length} done</span></div></button>
@@ -3099,6 +3205,15 @@ $('#panel').addEventListener('click',e=>{
     case 'fglist': openFamous(); break;
     case 'rdlist': openReadings(); break;
     case 'eglist': openEndgames(); break;
+    case 'course': openCourse(); break;
+    case 'learnhome': { S.token++; s.egRun=(s.egRun||0)+1; if(s.co) coStop(s.co,true); Object.assign(s,{les:null,fg:null,eg:null,co:null,done:false,checking:false,awaitGuess:false,msg:'',msgType:'',view:null,over:null,orientation:'w'});
+      s.game=newGame(); s.eng.loadUci(START,[]); S.hint=null; deselect(); renderLabels(); renderPieces({instant:true}); renderAll(); break; }
+    case 'coursego': { const nx=courseNext(); if(nx) courseGo(nx.step); break; }
+    case 'coords': startCoords(); break;
+    case 'costart': coStart(); break;
+    case 'costop': if(s.co) coStop(s.co); break;
+    case 'coans': coAnswer(+b.dataset.v); break;
+    case 'coset': if(s.co&&!s.co.running){ const k=b.dataset.k, v=b.dataset.v; if(k==='labels') s.co.labels=v==='on'; else s.co[k]=v; if(k==='side'){ s.orientation=v; renderPieces({instant:true}); } s.co.last=null; renderLabels(); renderAll(); } break;
     case 'egretry': startEndgame(s.eg); break;
     case 'egundo': egUndo(s); break;
     case 'egnext': { const i=ENDGAMES.indexOf(s.eg); if(ENDGAMES[i+1]) startEndgame(ENDGAMES[i+1]); break; }
@@ -3122,6 +3237,7 @@ $('#panel').addEventListener('click',e=>{
 function switchTab(t,silent){
   if(D.active) return;
   S.tab=t; S.selected=-1; S.targets=new Map(); S.hint=null; S.flashes=[];
+  if(t!=='learn'&&sessions.learn.co&&sessions.learn.co.running){ coStop(sessions.learn.co,true); }
   if(t==='play') clockStart(sessions.play); else if(sessions.play.clock&&sessions.play.clock.run){ clockStop(sessions.play.clock); savePlay(); }
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
   renderLabels(); renderPieces({instant:true}); renderAll();
@@ -3173,7 +3289,7 @@ function openLevelPicker(){
   $('#lvPick').onclick=e=>{
     const b=e.target.closest('button'); if(!b) return;
     const l=+b.dataset.l; closeSheet(); if(l===s.level) return;
-    s.level=l; savePlay(); renderStrips(); renderPanel();
+    s.level=l; s.minLvl=Math.min(s.minLvl??l,l); savePlay(); renderStrips(); renderPanel();
     toast(S.thinking?`${LEVELS[l].name} takes over from the next move`:`Now playing ${LEVELS[l].name}`);
   };
 }
@@ -3248,6 +3364,8 @@ function searchIndex(){
   LESSONS.forEach(l=>out.push({kind:'Lesson',icon:'🎓',title:l.title,sub:l.about,score:q=>scoreText([[l.title,5],[l.about,1.5],['lesson beginner learn how to move',.5]],q),open:()=>{ closeSheet(); startLesson(l); }}));
   FAMOUS.forEach(g=>out.push({kind:'Famous game',icon:'🏆',title:g.title,sub:`${g.white} vs ${g.black} · ${g.where}`,score:q=>scoreText([[g.title,5],[g.white+' '+g.black,4],[g.where,2],[g.about,1],['famous game master',.5]],q),open:()=>{ closeSheet(); startFamous(g); }}));
   READINGS.forEach((r,i)=>out.push({kind:'Reading',icon:'📄',title:r.title,sub:`${r.mins} min read`,score:q=>scoreText([[r.title,5],[r.body.replace(/<[^>]+>/g,' '),1],['reading article',.5]],q),open:()=>openReading(i)}));
+  out.push({kind:'Learn',icon:'🧭',title:'Your chess path',sub:'Every step from beginner to expert, with your progress',score:q=>scoreText([['chess path course journey steps progress beginner',3]],q),open:()=>{ closeSheet(); setTimeout(openCourse,250); }});
+  out.push({kind:'Learn',icon:'🎯',title:'Board coordinates',sub:'Learn the square names with a 30-second game',score:q=>scoreText([['board coordinates squares names letters numbers notation',3]],q),open:()=>{ closeSheet(); startCoords(); }});
   ENDGAMES.forEach(e=>out.push({kind:'Endgame',icon:'♔',title:e.title,sub:`${e.level} · ${e.about}`,score:q=>scoreText([[e.title,5],[e.about,1.5],['endgame ending trainer '+e.level,.7],[e.how.join(' '),.4]],q),open:()=>{ closeSheet(); startEndgame(e); }}));
   PZ_THEMES.forEach(t=>out.push({kind:'Puzzle theme',icon:t.icon,title:t.name+' puzzles',sub:t.about,score:q=>scoreText([[t.name,5],[t.about,1.5],['puzzle tactic theme '+t.group,.6]],q),open:()=>{ closeSheet(); startThemePuzzle(t.k,pzLevel); }}));
   PUZZLES.forEach(p=>out.push({kind:'Puzzle',icon:'🧩',title:p.title,sub:`Mate in ${p.mate}`,score:q=>scoreText([[p.title,5],[p.hint,1.5],['puzzle mate in '+p.mate+' tactic',.6]],q),open:()=>{ closeSheet(); startPuzzle(p); }}));
@@ -3386,7 +3504,7 @@ async function startReview(s){
     acc[c].push(cls==='book'?100:clamp(103.1668*Math.exp(-0.04354*loss)-3.1669,0,100));
   }
   R.acc={w:acc.w.length?Math.round(acc.w.reduce((a,b)=>a+b,0)/acc.w.length):null,b:acc.b.length?Math.round(acc.b.reduce((a,b)=>a+b,0)/acc.b.length):null};
-  R.running=false;
+  R.running=false; store.set('reviews',(+store.get('reviews',0)||0)+1);
   if(cur()===s){ const first=rvList(s)[0]; setView(first!==undefined?first+1:null); if(first===undefined) renderAll(); }
 }
 // Which moves "Next mistake" steps through: your moves against the computer, everyone's otherwise.

@@ -53,7 +53,7 @@ const SOLS = [['e2e4', 'e4d5', 'a7a8'], ['a1a6', 'a6g6'], ['c1h6', 'f1b5'], ['d1
   check(await page.locator('#tabs [data-tab="learn"]').isVisible(), 'Learn tab in bottom bar');
   await page.click('#tabs [data-tab="learn"]'); await sleep(500);
   await page.screenshot({ path: path.join(OUT, 'b1-learn-intro.png') });
-  check(/Learn chess/.test(await page.locator('#panel').innerText()), 'Learn intro card shown');
+  check(/Your chess path/.test(await page.locator('#panel').innerText()), 'Learn opens with the chess path card');
   await page.click('[data-act="lsnext"]'); await sleep(600);
   check((await page.locator('.hl.goal').count()) === 1, 'glowing target square shown');
   await page.screenshot({ path: path.join(OUT, 'b2-lesson-pawn.png') });
