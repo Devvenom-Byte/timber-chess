@@ -74,6 +74,12 @@ async function waitFor(fn, ms = 15000, step = 100) { const s = Date.now(); while
   await tc(() => { const c = window.__tc.sessions.play.clock; c.w = 300; c.t0 = performance.now(); });
   await waitFor(() => tc(() => !!window.__tc.sessions.play.over), 5000);
   check(await tc(() => { const g = window.__tc.gameLog; return g.length === 1 && g[0].res === 'loss'; }), 'a finished game against the computer is recorded (a loss on time)');
+  // the piece is called the Vizier everywhere people read (owner's request; internal ids may still say bishop)
+  const texts = await tc(() => { const t = window.__tc; return JSON.stringify([t.READINGS.map(r => [r.title, r.body]), t.OPENING_BOOK.map(o => { const { id, ...rest } = o; return rest; }), t.FAMOUS.map(g => { const { id, ...rest } = g; return rest; }), t.COURSE.map(l => l.items.map(x => [x.t, x.d])), t.ENDGAMES.map(e => { const { id, ...rest } = e; return rest; })]); });
+  check(!/bishop/i.test(texts) && /vizier/i.test(texts), 'no "bishop" in readings, openings, famous games, the path or endgames; "vizier" is used');
+  await page.click('#tabs [data-tab="learn"]'); await sleep(200); await page.click('#tabs [data-tab="learn"]').catch(() => {});
+  const lessonText = await tc(() => document.body.innerText);
+  check(!/bishop/i.test(lessonText), 'no "bishop" on screen');
   check(!errs.length, errs.length ? 'errors: ' + errs.slice(0, 5).join(' | ') : 'no errors');
   console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED');
   await b.close();

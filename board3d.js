@@ -236,34 +236,16 @@ function buildGeometries(segs) {
     }
     G.r = merge(parts);
   }
-  // ---- Bishop (mitre with a carved slit)
+  // ---- Vizier (the bishop's place): an onion-dome top with a small ball finial. No mitre, no slit.
   {
     const P = new Prof(); const [r0, y0] = foot(P, 0.3);
     P.C(r0 - 0.03, y0 + 0.13, 0.1, 0.46, 0.094, 0.6, 14);
     collar(P, 0.6, 0.18, 0.088, 0.13);
-    P.C(0.2, 0.76, 0.215, 0.95, 0.034, 1.07, 46);
-    P.L(0.04, 1.076).L(0.03, 1.084);
-    P.A(0, 1.125, 0.05, -1.0, Math.PI / 2, 14);
-    const g = lathe(P.pts, Math.max(segs, 64));
-    // slit: a tilted cut on the front (+z) half of the mitre
-    const pos = g.attributes.position, col = g.attributes.color, nor = g.attributes.normal;
-    const ang = 0.92, nx = Math.sin(ang), ny = Math.cos(ang), cy = 0.93, w = 0.024;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-      if (y < 0.76 || y > 1.04) continue;
-      const r = Math.hypot(x, z); if (r < 0.02) continue;
-      const d = x * nx + (y - cy) * ny;
-      if (Math.abs(d) > w) continue;
-      const front = z / r, m = smooth(-0.35, 0.25, front);
-      if (m <= 0) continue;
-      const t = 1 - (d / w) * (d / w), k = 1 - 0.42 * t * m;
-      pos.setXYZ(i, x * k, y, z * k);
-      const c = 1 - 0.72 * t * m; col.setXYZ(i, c, c, c);
-      // tilt normal toward the cut wall
-      const s = Math.sign(d) || 1;
-      nor.setXYZ(i, lerp(nor.getX(i), nx * s, 0.6 * t * m), lerp(nor.getY(i), ny * s, 0.6 * t * m), nor.getZ(i));
-    }
-    G.b = merge([g]);
+    P.C(0.25, 0.68, 0.245, 0.86, 0.11, 0.93, 22);   // the dome swells out...
+    P.C(0.05, 0.965, 0.026, 0.995, 0.022, 1.04, 12); // ...and draws in to a point
+    P.L(0.024, 1.052);
+    P.A(0, 1.09, 0.045, -1.0, Math.PI / 2, 14);
+    G.b = merge([lathe(P.pts, Math.max(segs, 64))]);
   }
   // ---- Queen (coronet of points with balls)
   {
@@ -291,7 +273,7 @@ function buildGeometries(segs) {
     }
     G.q = merge(parts);
   }
-  // ---- King (crown + cross)
+  // ---- King (crown + jewel)
   {
     const P = new Prof(); const [r0, y0] = foot(P, 0.335);
     P.C(r0 - 0.03, y0 + 0.17, 0.12, 0.56, 0.112, 0.79, 16);
@@ -300,12 +282,9 @@ function buildGeometries(segs) {
     P.Q(0.232, 1.19, 0.2, 1.205, 5).L(0.17, 1.205);
     P.Q(0.1, 1.215, 0.075, 1.27, 8).L(0.088, 1.278).L(0.088, 1.296).L(0.05, 1.302).L(0, 1.302);
     const parts = [lathe(P.pts, segs)];
-    // cross with flared arms
-    const s = new THREE.Shape(), a = 0.036, h0 = 0, h1 = 0.27, cy = 0.17, aw = 0.11, ah = 0.034, fl = 0.012;
-    s.moveTo(-a, h0); s.lineTo(a, h0); s.lineTo(a, cy - ah); s.lineTo(aw, cy - ah - fl); s.lineTo(aw, cy + ah + fl); s.lineTo(a, cy + ah);
-    s.lineTo(a + fl, h1); s.lineTo(-a - fl, h1); s.lineTo(-a, cy + ah); s.lineTo(-aw, cy + ah + fl); s.lineTo(-aw, cy - ah - fl); s.lineTo(-a, cy - ah); s.lineTo(-a, h0);
-    const cg = extrude(s, 0.05, 0.014, { bs: 2 }); cg.translate(0, 1.29, 0);
-    parts.push(creaseNormals(cg, 40));
+    // a cut jewel on top (8 facets)
+    const J = [new THREE.Vector2(0, 1.29), new THREE.Vector2(0.034, 1.292), new THREE.Vector2(0.03, 1.32), new THREE.Vector2(0.078, 1.405), new THREE.Vector2(0.06, 1.425), new THREE.Vector2(0, 1.53)];
+    parts.push(creaseNormals(lathe(J, 8, 20), 30));
     G.k = merge(parts);
   }
   // ---- Knight
@@ -319,24 +298,17 @@ function buildKnight(segs) {
   const baseTop = y0 + 0.05;
   const parts = [lathe(P.pts, segs)];
 
-  // Head silhouette, nose toward +x. Sampled curves; mane gets carved bumps.
+  // Head silhouette, nose toward +x. Kept plain: no face details, smooth back.
   const pts = [];
   const add = (x, y) => pts.push(new THREE.Vector2(x, y));
   const cub = (a, c1, c2, b, n, fn) => { for (let i = 1; i <= n; i++) { const t = i / n, u = 1 - t; const x = u * u * u * a[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * b[0], y = u * u * u * a[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * b[1]; fn ? fn(x, y, t) : add(x, y); } };
   const quad = (a, c, b, n) => { for (let i = 1; i <= n; i++) { const t = i / n, u = 1 - t; add(u * u * a[0] + 2 * u * t * c[0] + t * t * b[0], u * u * a[1] + 2 * u * t * c[1] + t * t * b[1]); } };
   add(-0.2, 0);
-  // back of neck with mane tufts
+  // back of the neck
   const back = [];
   cub([-0.2, 0], [-0.25, 0.16], [-0.27, 0.33], [-0.2, 0.49], 22, (x, y) => back.push([x, y]));
   cub([-0.2, 0.49], [-0.15, 0.58], [-0.11, 0.64], [-0.06, 0.675], 12, (x, y) => back.push([x, y]));
-  for (let i = 0; i < back.length; i++) {
-    const [x, y] = back[i], [px, py] = back[Math.max(0, i - 1)], [qx, qy] = back[Math.min(back.length - 1, i + 1)];
-    let tx = qx - px, ty = qy - py; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
-    const nx = -ty, ny = tx; // outward (left of travel when going up the back)
-    const u = i / (back.length - 1), m = smooth(0.12, 0.25, u) * (1 - smooth(0.85, 0.97, u));
-    const bump = 0.022 * m * Math.pow(Math.abs(Math.sin(u * Math.PI * 7)), 0.6);
-    add(x + nx * bump, y + ny * bump);
-  }
+  for (const [x, y] of back) add(x, y); // smooth back of the neck (no mane)
   // ears
   quad([-0.06, 0.675], [-0.07, 0.73], [-0.045, 0.785], 5);
   quad([-0.045, 0.785], [-0.005, 0.75], [0.015, 0.69], 5);
@@ -360,14 +332,6 @@ function buildKnight(segs) {
   g = creaseNormals(g, 48);
   g.translate(0.01, baseTop - 0.02, 0);
   parts.push(g);
-  // eyes and nostrils (dark), cheek bulge
-  const zs = (x, y) => (depth / 2 + bt) * taper(x, y);
-  for (const sd of [-1, 1]) {
-    const e = withColor(new THREE.SphereGeometry(0.03, 12, 8), 0.22); e.scale(1, 0.8, 0.55);
-    e.translate(0.085, baseTop - 0.02 + 0.53, sd * (zs(0.085, 0.53) - 0.004)); parts.push(e);
-    const nn = withColor(new THREE.SphereGeometry(0.018, 8, 6), 0.3); nn.scale(1, 0.8, 0.5);
-    nn.translate(0.245, baseTop - 0.02 + 0.335, sd * (zs(0.245, 0.335) - 0.004)); parts.push(nn);
-  }
   const geo = merge(parts);
   return geo;
 }

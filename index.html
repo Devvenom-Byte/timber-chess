@@ -844,7 +844,7 @@ function EngineFactory(){
 <script>
 const OPENINGS=[
  {id:'italian',name:'Italian Game',side:'w',key:5,moves:'e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 cxd4 Bb4+ Bd2 Bxd2+ Nbxd2 d5',
-  about:'Aim the bishop at f7, build a big pawn centre with c3 and d4, and develop fast.'},
+  about:'Aim the vizier at f7, build a big pawn centre with c3 and d4, and develop fast.'},
  {id:'ruy',name:'Ruy Lopez',side:'w',key:5,moves:'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3',
   about:'The Spanish: pressure the knight that guards e5, castle early and prepare d4.'},
  {id:'scotch',name:'Scotch Game',side:'w',key:5,moves:'e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Bc5 Be3 Qf6 c3 Nge7 Bc4',
@@ -862,15 +862,15 @@ const OPENINGS=[
  {id:'london',name:'London System',side:'w',key:3,moves:'d4 d5 Bf4 Nf6 e3 e6 Nf3 c5 c3 Nc6 Nbd2 Bd6 Bg3 O-O Bd3',
   about:'A solid set-up you can play against almost anything: Bf4, e3, c3, Nbd2, Bd3.'},
  {id:'english',name:'English Opening',side:'w',key:1,moves:'c4 e5 Nc3 Nf6 g3 d5 cxd5 Nxd5 Bg2 Nb6 Nf3 Nc6 O-O',
-  about:'Start on the flank with c4, fianchetto the bishop and control the light squares.'},
+  about:'Start on the flank with c4, fianchetto the vizier and control the light squares.'},
  {id:'najdorf',name:'Sicilian Najdorf',side:'b',key:10,moves:'e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3 e5 Nb3 Be6',
   about:'The sharpest Sicilian: a6 keeps pieces off b5 and prepares ...e5 or ...b5.'},
  {id:'dragon',name:'Sicilian Dragon',side:'b',key:10,moves:'e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Be3 Bg7 f3 O-O Qd2 Nc6',
-  about:'Fianchetto the bishop on the long diagonal and race for counterplay on the queenside.'},
+  about:'Fianchetto the vizier on the long diagonal and race for counterplay on the queenside.'},
  {id:'french',name:'French Defence',side:'b',key:2,moves:'e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3 Qb6 Bd3 cxd4 cxd4 Bd7',
   about:'Solid and counter-punching: hit the white pawn chain at its base with ...c5.'},
  {id:'caro',name:'Caro-Kann',side:'b',key:2,moves:'e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5 Ng3 Bg6 h4 h6 Nf3 Nd7 h5 Bh7',
-  about:'Rock solid: support ...d5 with c6 and get the light-squared bishop out early.'},
+  about:'Rock solid: support ...d5 with c6 and get the light-squared vizier out early.'},
  {id:'scandi',name:'Scandinavian',side:'b',key:2,moves:'e4 d5 exd5 Qxd5 Nc3 Qa5 d4 Nf6 Nf3 c6 Bc4 Bf5',
   about:'Hit e4 at once with ...d5 and recapture with the queen. Simple and direct.'},
  {id:'petrov',name:'Petrov Defence',side:'b',key:4,moves:'e4 e5 Nf3 Nf6 Nxe5 d6 Nf3 Nxe4 d4 d5 Bd3 Nc6',
@@ -878,13 +878,13 @@ const OPENINGS=[
  {id:'pirc',name:'Pirc Defence',side:'b',key:4,moves:'e4 d6 d4 Nf6 Nc3 g6 Nf3 Bg7 Be2 O-O O-O c6',
   about:'Let White take the centre, then undermine it from the side with your pieces.'},
  {id:'slav',name:'Slav Defence',side:'b',key:4,moves:'d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4 a4 Bf5 e3 e6 Bxc4 Bb4',
-  about:'Support d5 with c6, keeping the light-squared bishop free to develop.'},
+  about:'Support d5 with c6, keeping the light-squared vizier free to develop.'},
  {id:'kid',name:"King's Indian Defence",side:'b',key:8,moves:'d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 O-O Nc6 d5 Ne7',
   about:'Hypermodern: castle quickly, strike with ...e5 and later attack the white king.'},
  {id:'nimzo',name:'Nimzo-Indian',side:'b',key:6,moves:'d4 Nf6 c4 e6 Nc3 Bb4 e3 O-O Bd3 d5 Nf3 c5 O-O Nc6',
   about:'Pin the c3 knight with ...Bb4 to fight for e4 and damage White\'s pawns.'},
  {id:'grunfeld',name:'Grünfeld Defence',side:'b',key:6,moves:'d4 Nf6 c4 g6 Nc3 d5 cxd5 Nxd5 e4 Nxc3 bxc3 Bg7 Nf3 c5',
-  about:'Invite a big white centre, then attack it with the g7 bishop and ...c5.'},
+  about:'Invite a big white centre, then attack it with the g7 vizier and ...c5.'},
  {id:'dutch',name:'Dutch Defence',side:'b',key:2,moves:'d4 f5 g3 Nf6 Bg2 g6 Nf3 Bg7 O-O O-O c4 d6',
   about:'Grab e4 with ...f5 and aim for an attacking, unbalanced game.'}
 ];
@@ -894,8 +894,8 @@ const OPENINGS=[
 const OPENING_BOOK=[
  // ---- 1.e4 e5
  {id:'kingspawn',name:'King\'s Pawn Opening',eco:'B00–C99',group:'e4',key:1,side:'w',level:'beginner',moves:'e4',
-  sum:'1.e4: the most popular first move. It grabs the centre and opens lines for the queen and the king\'s bishop.',
-  ideas:['White controls d5 and f5 and frees the bishop on f1.','Black\'s main replies: 1...e5 (open games), 1...c5 (Sicilian), 1...e6 (French), 1...c6 (Caro-Kann).'],
+  sum:'1.e4: the most popular first move. It grabs the centre and opens lines for the queen and the king\'s vizier.',
+  ideas:['White controls d5 and f5 and frees the vizier on f1.','Black\'s main replies: 1...e5 (open games), 1...c5 (Sicilian), 1...e6 (French), 1...c6 (Caro-Kann).'],
   mistake:'Bringing the queen out at once (2.Qh5) is easy to meet and loses time.',players:'Bobby Fischer called 1.e4 "best by test".'},
  {id:'opengame',name:'Open Game',eco:'C20–C99',group:'e4e5',key:2,side:'w',level:'beginner',moves:'e4 e5',
   sum:'Both sides push their king\'s pawn two squares. Lines open quickly, so fast development matters.',
@@ -904,17 +904,17 @@ const OPENING_BOOK=[
  {id:'wayward',name:'Wayward Queen Attack',eco:'C20',group:'e4e5',key:3,side:'w',level:'beginner',moves:'e4 e5 Qh5 Nc6 Bc4 g6 Qf3 Nf6',
   sum:'An early queen sortie that aims at f7, hoping for Scholar\'s Mate.',
   ideas:['White threatens Qxf7# together with Bc4.','Black defends with ...Nc6 and ...g6, then develops by attacking the queen.'],
-  mistake:'Black playing ...Nf6?? while the queen and bishop both hit f7: Qxf7 is checkmate.',players:'Popular in beginners\' games; strong players use it only as a surprise.'},
+  mistake:'Black playing ...Nf6?? while the queen and vizier both hit f7: Qxf7 is checkmate.',players:'Popular in beginners\' games; strong players use it only as a surprise.'},
  {id:'centregame',name:'Centre Game',eco:'C22',group:'e4e5',key:5,side:'w',level:'club',moves:'e4 e5 d4 exd4 Qxd4 Nc6 Qe3 Nf6 Nc3 Bb4 Bd2 O-O O-O-O Re8',
   sum:'White opens the centre at once and recaptures with the queen, then castles queenside.',
   ideas:['White gets quick development and castles long for an attack.','Black gains time by hitting the queen with ...Nc6.'],
   mistake:'The queen in the centre gets chased around; White must not waste more moves with it.',players:'Rare at top level; useful as a surprise.'},
  {id:'danish',name:'Danish Gambit',eco:'C21',group:'e4e5',key:5,side:'w',level:'club',moves:'e4 e5 d4 exd4 c3 dxc3 Bc4 cxb2 Bxb2 d5',
-  sum:'White gives up two pawns for two bishops aiming straight at the black king.',
-  ideas:['White\'s bishops on c4 and b2 rake the board.','Black\'s best defence is to give material back with ...d5 and catch up in development.'],
+  sum:'White gives up two pawns for two viziers aiming straight at the black king.',
+  ideas:['White\'s viziers on c4 and b2 rake the board.','Black\'s best defence is to give material back with ...d5 and catch up in development.'],
   mistake:'Greedy defence: keeping both pawns and not developing usually loses quickly.',players:'A favourite of 1800s attacking players.'},
- {id:'bishops',name:'Bishop\'s Opening',eco:'C23–C24',group:'e4e5',key:3,side:'w',level:'beginner',moves:'e4 e5 Bc4 Nf6 d3 c6 Nf3 d5 Bb3 Bd6',
-  sum:'White develops the bishop first, aiming at f7, and keeps the f-pawn free to push.',
+ {id:'bishops',name:'Vizier\'s Opening',eco:'C23–C24',group:'e4e5',key:3,side:'w',level:'beginner',moves:'e4 e5 Bc4 Nf6 d3 c6 Nf3 d5 Bb3 Bd6',
+  sum:'White develops the vizier first, aiming at f7, and keeps the f-pawn free to push.',
   ideas:['White can choose between quiet play with d3 and a later f4.','Black often hits back in the centre with ...c6 and ...d5.'],
   mistake:'Black playing ...Nc6 and ...Bc5 automatically can walk into a later f4 attack.',players:'Analysed by Philidor in the 1700s; later used by Vladimir Kramnik.'},
  {id:'vienna',name:'Vienna Game',eco:'C25–C29',group:'e4e5',key:3,side:'w',level:'club',drill:'vienna',moves:'e4 e5 Nc3 Nf6 f4 d5 fxe5 Nxe4 Nf3 Be7 d4 O-O',
@@ -931,7 +931,7 @@ const OPENING_BOOK=[
   mistake:'Defending e5 with 2...Qf6 or 2...f6, which block pieces or weaken the king.',players:'The most common second move at every level.'},
  {id:'philidor',name:'Philidor Defence',eco:'C41',group:'e4e5',key:4,side:'b',level:'club',moves:'e4 e5 Nf3 d6 d4 Nf6 Nc3 Nbd7 Bc4 Be7 O-O O-O',
   sum:'Black defends e5 with a pawn, aiming for a solid but slightly cramped position.',
-  ideas:['Black keeps a strong point on e5.','The f8 bishop goes to e7 behind the pawn chain.','White gets more space and easier development.'],
+  ideas:['Black keeps a strong point on e5.','The f8 vizier goes to e7 behind the pawn chain.','White gets more space and easier development.'],
   mistake:'Passive play: Black must stay alert for tricks on f7.',players:'François-André Philidor (1700s); see "The Opera Game".'},
  {id:'petrov',name:'Petrov Defence',eco:'C42–C43',group:'e4e5',key:4,side:'b',level:'club',drill:'petrov',moves:'e4 e5 Nf3 Nf6 Nxe5 d6 Nf3 Nxe4 d4 d5 Bd3 Nc6 O-O Be7',
   sum:'Black counter-attacks e4 instead of defending e5. Very solid and hard to beat.',
@@ -946,12 +946,12 @@ const OPENING_BOOK=[
   ideas:['Develop, castle and fight over the centre.','White often pins the c6 knight with Bb5.'],
   mistake:'Copying every move: symmetry eventually breaks and the side that moves first can strike.',players:'Played by Akiba Rubinstein; popular with club players.'},
  {id:'italian',name:'Italian Game',eco:'C50–C54',group:'e4e5',key:5,side:'w',level:'beginner',drill:'italian',moves:'e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O O-O Re1 a6',
-  sum:'The bishop goes to c4, aiming at f7. One of the oldest and most natural openings.',
+  sum:'The vizier goes to c4, aiming at f7. One of the oldest and most natural openings.',
   ideas:['White plays c3 and d4 (sharp) or d3 (slow build-up, the "Giuoco Pianissimo").','Black mirrors with ...Bc5 or ...Nf6 and fights for the centre.'],
   mistake:'Pushing d4 too early without preparation, or leaving f7/f2 weak.',players:'Played by every world champion; Magnus Carlsen often uses the slow d3 lines.'},
  {id:'evans',name:'Evans Gambit',eco:'C51–C52',group:'e4e5',key:7,side:'w',level:'club',drill:'evans',moves:'e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bxb4 c3 Ba5 d4 exd4 O-O',
   sum:'White gives the b-pawn to gain time for c3 and d4 and a fast attack.',
-  ideas:['White wins time by chasing the bishop and builds a big centre.','Black should give a pawn back to finish development.'],
+  ideas:['White wins time by chasing the vizier and builds a big centre.','Black should give a pawn back to finish development.'],
   mistake:'Black keeping all the pawns and leaving the king in the centre.',players:'Captain William Evans invented it; Garry Kasparov used it to beat Anand in 1995.'},
  {id:'twoknights',name:'Two Knights Defence',eco:'C55–C59',group:'e4e5',key:6,side:'b',level:'club',moves:'e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Na5 Bb5+ c6 dxc6 bxc6 Be2 h6 Nf3 e4 Ne5',
   sum:'Instead of ...Bc5, Black counter-attacks e4 with the knight. Sharp and tricky.',
@@ -962,16 +962,16 @@ const OPENING_BOOK=[
   ideas:['The black king is forced to e6, where White\'s pieces hunt it.','White adds d4 and Re1 to open more lines.'],
   mistake:'Black playing 5...Nxd5 in the first place; with 5...Na5 there is no sacrifice.',players:'Analysed by Italian players around 1600.'},
  {id:'ruy',name:'Ruy Lopez (Spanish)',eco:'C60–C99',group:'e4e5',key:5,side:'w',level:'club',drill:'ruy',moves:'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3',
-  sum:'The bishop pressures the knight that defends e5. The most deeply studied opening in chess.',
-  ideas:['White aims for d4 with long-lasting pressure.','Black usually kicks the bishop with ...a6 and ...b5.','The bishop often retreats to b3 or c2, where it still aims at the black king.'],
+  sum:'The vizier pressures the knight that defends e5. The most deeply studied opening in chess.',
+  ideas:['White aims for d4 with long-lasting pressure.','Black usually kicks the vizier with ...a6 and ...b5.','The vizier often retreats to b3 or c2, where it still aims at the black king.'],
   mistake:'Taking on c6 and e5 too early: 4.Bxc6 dxc6 5.Nxe5? Qd4! wins the pawn back.',players:'Every world champion; named after the Spanish priest Ruy López (1561).'},
  {id:'berlin',name:'Ruy Lopez: Berlin Defence',eco:'C65–C67',group:'e4e5',key:6,side:'b',level:'expert',moves:'e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 d4 Nd6 Bxc6 dxc6 dxe5 Nf5 Qxd8+ Kxd8',
-  sum:'Black goes for an early queen trade. Black loses castling but gets two bishops and a very solid position.',
-  ideas:['The "Berlin Wall": an endgame where Black is hard to break down.','White has the extra kingside pawn majority; Black has the bishop pair.'],
+  sum:'Black goes for an early queen trade. Black loses castling but gets two viziers and a very solid position.',
+  ideas:['The "Berlin Wall": an endgame where Black is hard to break down.','White has the extra kingside pawn majority; Black has the vizier pair.'],
   mistake:'Thinking the queenless position is easy: both sides need precise endgame play.',players:'Vladimir Kramnik used it to take the world title from Kasparov in 2000.'},
  {id:'ruyexchange',name:'Ruy Lopez: Exchange Variation',eco:'C68–C69',group:'e4e5',key:7,side:'w',level:'club',moves:'e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 O-O f6 d4 exd4 Nxd4 c5',
-  sum:'White gives up the bishop to damage Black\'s pawns and heads for a good endgame.',
-  ideas:['White\'s kingside pawn majority can make a passed pawn.','Black has the two bishops and open lines.'],
+  sum:'White gives up the vizier to damage Black\'s pawns and heads for a good endgame.',
+  ideas:['White\'s kingside pawn majority can make a passed pawn.','Black has the two viziers and open lines.'],
   mistake:'5.Nxe5? straight away fails to ...Qd4. White castles first.',players:'Emanuel Lasker and Bobby Fischer.'},
  {id:'ruyclosed',name:'Ruy Lopez: Closed',eco:'C84–C99',group:'e4e5',key:10,side:'w',level:'expert',moves:'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3 Na5 Bc2 c5 d4',
   sum:'The main line of the Spanish: a long manoeuvring battle over the centre.',
@@ -999,12 +999,12 @@ const OPENING_BOOK=[
   ideas:['White plays g3, Bg2, d3, and later f4 and f5.','Black expands on the queenside with ...Rb8 and ...b5.'],
   mistake:'Black castling short automatically into White\'s pawn storm.',players:'Boris Spassky played it in his world championship years.'},
  {id:'rossolimo',name:'Sicilian: Rossolimo',eco:'B30–B31',group:'sicilian',key:5,side:'w',level:'club',moves:'e4 c5 Nf3 Nc6 Bb5 g6 O-O Bg7 Re1 e5',
-  sum:'White pins the c6 knight and may give the bishop for it to damage Black\'s pawns.',
-  ideas:['White keeps the game calmer than open Sicilian lines.','Taking on c6 gives Black doubled pawns but the bishop pair.'],
+  sum:'White pins the c6 knight and may give the vizier for it to damage Black\'s pawns.',
+  ideas:['White keeps the game calmer than open Sicilian lines.','Taking on c6 gives Black doubled pawns but the vizier pair.'],
   mistake:'Black ignoring the pin and letting e5 or d5 become weak.',players:'Nicolas Rossolimo; often used by Magnus Carlsen and Fabiano Caruana.'},
  {id:'sveshnikov',name:'Sicilian: Sveshnikov',eco:'B33',group:'sicilian',key:10,side:'b',level:'expert',moves:'e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 Nf6 Nc3 e5 Ndb5 d6 Bg5 a6 Na3 b5',
   sum:'Black plays ...e5, accepting a hole on d5 in return for active pieces and time.',
-  ideas:['Black chases the knights and gets the two bishops or quick queenside play.','White fights for the d5 square.'],
+  ideas:['Black chases the knights and gets the two viziers or quick queenside play.','White fights for the d5 square.'],
   mistake:'Black letting White plant a knight on d5 for free.',players:'Evgeny Sveshnikov; Magnus Carlsen used it in his 2018 world championship match.'},
  {id:'acceldragon',name:'Sicilian: Accelerated Dragon',eco:'B34–B39',group:'sicilian',key:8,side:'b',level:'club',moves:'e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 g6 c4 Bg7 Be3 Nf6 Nc3 O-O',
   sum:'Black fianchettoes before ...d6, hoping to play ...d5 in one go.',
@@ -1015,7 +1015,7 @@ const OPENING_BOOK=[
   ideas:['Black can choose between ...d6 set-ups and quick ...Bb4 play.','White often castles long and attacks.'],
   mistake:'Delaying development too long while White builds an attack.',players:'Mark Taimanov; popular with elite players.'},
  {id:'dragon',name:'Sicilian: Dragon',eco:'B70–B79',group:'sicilian',key:10,side:'b',level:'expert',drill:'dragon',moves:'e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Be3 Bg7 f3 O-O Qd2 Nc6',
-  sum:'Black fianchettoes the bishop on the long diagonal. Its pawn shape looks like a dragon.',
+  sum:'Black fianchettoes the vizier on the long diagonal. Its pawn shape looks like a dragon.',
   ideas:['In the Yugoslav Attack White castles long and storms with h4–h5.','Black races on the queenside with ...Rc8, ...Ne5 and ...Rxc3 sacrifices.'],
   mistake:'Black being too slow: in the Yugoslav Attack every move counts.',players:'A favourite of attacking players for over a century.'},
  {id:'scheveningen',name:'Sicilian: Scheveningen',eco:'B80–B89',group:'sicilian',key:10,side:'b',level:'expert',moves:'e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 e6 Be2 Be7 O-O O-O f4 Nc6',
@@ -1029,10 +1029,10 @@ const OPENING_BOOK=[
  // ---- French / Caro-Kann / other 1.e4 replies
  {id:'french',name:'French Defence',eco:'C00–C19',group:'french',key:2,side:'b',level:'club',drill:'french',moves:'e4 e6 d4 d5',
   sum:'1...e6 and 2...d5: a solid defence that attacks the white centre with pawns.',
-  ideas:['Black later strikes at the base of White\'s pawns with ...c5 and ...f6.','Black\'s light-squared bishop on c8 can get stuck behind e6: find it a job.'],
-  mistake:'Leaving the c8 bishop "bad" all game.',players:'Mikhail Botvinnik, Viktor Korchnoi, Wolfgang Uhlmann.'},
+  ideas:['Black later strikes at the base of White\'s pawns with ...c5 and ...f6.','Black\'s light-squared vizier on c8 can get stuck behind e6: find it a job.'],
+  mistake:'Leaving the c8 vizier "bad" all game.',players:'Mikhail Botvinnik, Viktor Korchnoi, Wolfgang Uhlmann.'},
  {id:'frexchange',name:'French: Exchange Variation',eco:'C01',group:'french',key:5,side:'w',level:'beginner',moves:'e4 e6 d4 d5 exd5 exd5 Nf3 Nf6 Bd3 Bd6 O-O O-O',
-  sum:'White takes on d5, freeing Black\'s light-squared bishop and making a symmetrical position.',
+  sum:'White takes on d5, freeing Black\'s light-squared vizier and making a symmetrical position.',
   ideas:['Calm, open play with equal chances.','Both sides fight over the open e-file.'],
   mistake:'Assuming symmetry means a dead draw: the more active player can still win.',players:'Often chosen for a quiet game.'},
  {id:'fradvance',name:'French: Advance Variation',eco:'C02',group:'french',key:5,side:'w',level:'club',moves:'e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3 Qb6 a3',
@@ -1048,25 +1048,25 @@ const OPENING_BOOK=[
   ideas:['White plays for a kingside space advantage.','Black counters with ...c5 and ...Nc6 against d4.'],
   mistake:'Black castling into a kingside attack too early.',players:'A classic of 20th-century chess.'},
  {id:'winawer',name:'French: Winawer',eco:'C15–C19',group:'french',key:6,side:'b',level:'expert',moves:'e4 e6 d4 d5 Nc3 Bb4 e5 c5 a3 Bxc3+ bxc3 Ne7 Qg4',
-  sum:'Black pins the c3 knight and is happy to give the bishop to double White\'s pawns.',
-  ideas:['White gets the bishop pair and attacks g7 with Qg4.','Black gets queenside counterplay against the doubled pawns.'],
+  sum:'Black pins the c3 knight and is happy to give the vizier to double White\'s pawns.',
+  ideas:['White gets the vizier pair and attacks g7 with Qg4.','Black gets queenside counterplay against the doubled pawns.'],
   mistake:'Black forgetting about g7 after Qg4.',players:'Szymon Winawer; Mikhail Botvinnik, Viktor Korchnoi.'},
  {id:'caro',name:'Caro-Kann Defence',eco:'B10–B19',group:'caro',key:2,side:'b',level:'club',drill:'caro',moves:'e4 c6 d4 d5',
-  sum:'1...c6 prepares ...d5 while keeping the light-squared bishop free.',
-  ideas:['Black gets a very solid pawn structure.','The c8 bishop usually comes out to f5 or g4 before ...e6.'],
+  sum:'1...c6 prepares ...d5 while keeping the light-squared vizier free.',
+  ideas:['Black gets a very solid pawn structure.','The c8 vizier usually comes out to f5 or g4 before ...e6.'],
   mistake:'Being too passive: Black needs ...c5 or ...e5 breaks later.',players:'José Raúl Capablanca, Anatoly Karpov and many modern grandmasters.'},
  {id:'caroadvance',name:'Caro-Kann: Advance Variation',eco:'B12',group:'caro',key:5,side:'w',level:'club',moves:'e4 c6 d4 d5 e5 Bf5 Nf3 e6 Be2 c5 Be3',
-  sum:'White grabs space with e5; Black develops the bishop outside the pawn chain.',
-  ideas:['Black attacks with ...c5, often in one move.','White can try g4 to chase the f5 bishop.'],
-  mistake:'Black playing ...e6 before getting the bishop out: it gets locked in.',players:'Nigel Short popularised the calm Nf3/Be2 system.'},
+  sum:'White grabs space with e5; Black develops the vizier outside the pawn chain.',
+  ideas:['Black attacks with ...c5, often in one move.','White can try g4 to chase the f5 vizier.'],
+  mistake:'Black playing ...e6 before getting the vizier out: it gets locked in.',players:'Nigel Short popularised the calm Nf3/Be2 system.'},
  {id:'panov',name:'Caro-Kann: Panov Attack',eco:'B13–B14',group:'caro',key:7,side:'w',level:'club',moves:'e4 c6 d4 d5 exd5 cxd5 c4 Nf6 Nc3 e6 Nf3 Be7',
   sum:'White plays c4, often leading to an isolated queen\'s pawn position.',
   ideas:['White gets active pieces and attacking chances.','Black targets the isolated d-pawn in the long run.'],
   mistake:'White drifting into an endgame where the isolated pawn is just weak.',players:'Vasily Panov; Mikhail Botvinnik.'},
  {id:'caroclassical',name:'Caro-Kann: Classical',eco:'B18–B19',group:'caro',key:8,side:'b',level:'club',moves:'e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5 Ng3 Bg6 h4 h6 Nf3 Nd7 h5 Bh7',
-  sum:'Black develops the bishop to f5, and White chases it with the knight and h-pawn.',
+  sum:'Black develops the vizier to f5, and White chases it with the knight and h-pawn.',
   ideas:['White gains kingside space with h4–h5.','Black gets a very solid position and castles queenside or stays in the centre.'],
-  mistake:'Black forgetting ...h6 and getting the bishop trapped by h5.',players:'Anatoly Karpov.'},
+  mistake:'Black forgetting ...h6 and getting the vizier trapped by h5.',players:'Anatoly Karpov.'},
  {id:'scandi',name:'Scandinavian Defence',eco:'B01',group:'e4other',key:2,side:'b',level:'beginner',drill:'scandi',moves:'e4 d5 exd5 Qxd5 Nc3 Qa5 d4 Nf6 Nf3 c6 Bc4 Bf5',
   sum:'Black hits e4 straight away with ...d5 and recaptures with the queen.',
   ideas:['Simple to learn: a clear pawn structure and quick development.','The queen usually settles on a5 or d6.'],
@@ -1090,7 +1090,7 @@ const OPENING_BOOK=[
  // ---- 1.d4
  {id:'queenspawn',name:'Queen\'s Pawn Opening',eco:'A40–E99',group:'d4',key:1,side:'w',level:'beginner',moves:'d4',
   sum:'1.d4: the second most popular first move. The pawn is protected by the queen, so positions are often more strategic.',
-  ideas:['White controls e5 and c5 and frees the c1 bishop.','Main replies: 1...d5 (Queen\'s Gambit lines) and 1...Nf6 (Indian defences).'],
+  ideas:['White controls e5 and c5 and frees the c1 vizier.','Main replies: 1...d5 (Queen\'s Gambit lines) and 1...Nf6 (Indian defences).'],
   mistake:'Playing d4 openings without a plan for the c-pawn (c4 is the key move in most lines).',players:'Every world champion.'},
  {id:'closedgame',name:'Closed Game',eco:'D00–D69',group:'d4d5',key:2,side:'w',level:'beginner',moves:'d4 d5',
   sum:'Both sides put a pawn in the centre. Lines stay closed longer than after 1.e4 e5.',
@@ -1110,55 +1110,55 @@ const OPENING_BOOK=[
   mistake:'Holding on to the c4 pawn with ...b5 too early.',players:'Vishy Anand.'},
  {id:'qgd',name:'Queen\'s Gambit Declined',eco:'D30–D69',group:'d4d5',key:4,side:'b',level:'club',drill:'qgd',moves:'d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 h6 Bh4 b6',
   sum:'Black keeps a pawn on d5 with ...e6. Very solid, trusted at the highest level.',
-  ideas:['Black\'s main challenge is developing the c8 bishop (often via ...b6 and ...Bb7).','White plays for the minority attack (b4–b5) or a central push.'],
-  mistake:'Black forgetting the c8 bishop, which stays locked behind e6.',players:'José Raúl Capablanca, Anatoly Karpov.'},
+  ideas:['Black\'s main challenge is developing the c8 vizier (often via ...b6 and ...Bb7).','White plays for the minority attack (b4–b5) or a central push.'],
+  mistake:'Black forgetting the c8 vizier, which stays locked behind e6.',players:'José Raúl Capablanca, Anatoly Karpov.'},
  {id:'slav',name:'Slav Defence',eco:'D10–D19',group:'d4d5',key:4,side:'b',level:'club',drill:'slav',moves:'d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4 a4 Bf5 e3 e6 Bxc4 Bb4',
-  sum:'Black supports d5 with ...c6, keeping the c8 bishop free to come out.',
-  ideas:['The bishop goes to f5 or g4 before ...e6.','Black can take on c4 and hold it with ...b5 when White is slow.'],
-  mistake:'Playing ...e6 too early and locking in the bishop.',players:'Vladimir Kramnik, Vishy Anand.'},
+  sum:'Black supports d5 with ...c6, keeping the c8 vizier free to come out.',
+  ideas:['The vizier goes to f5 or g4 before ...e6.','Black can take on c4 and hold it with ...b5 when White is slow.'],
+  mistake:'Playing ...e6 too early and locking in the vizier.',players:'Vladimir Kramnik, Vishy Anand.'},
  {id:'semislav',name:'Semi-Slav Defence',eco:'D43–D49',group:'d4d5',key:8,side:'b',level:'expert',moves:'d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 e3 Nbd7 Bd3 dxc4 Bxc4 b5',
   sum:'Black combines ...c6 and ...e6: solid but full of sharp counter-attacking lines.',
   ideas:['The Meran: Black takes on c4 and expands with ...b5.','Black aims for ...c5 or ...e5 breaks.'],
   mistake:'Getting lost in long theory; know the key pawn breaks.',players:'Garry Kasparov, Vishy Anand.'},
  {id:'catalan',name:'Catalan Opening',eco:'E01–E09',group:'d4nf6',key:5,side:'w',level:'expert',moves:'d4 Nf6 c4 e6 g3 d5 Bg2 Be7 Nf3 O-O O-O dxc4 Qc2 a6',
-  sum:'White combines the Queen\'s Gambit with a fianchetto: the g2 bishop pressures the long diagonal.',
+  sum:'White combines the Queen\'s Gambit with a fianchetto: the g2 vizier pressures the long diagonal.',
   ideas:['White often gives the c4 pawn temporarily for long-term pressure.','Black has to free the queenside with ...c5 or ...b5.'],
   mistake:'Black hanging on to the c4 pawn at the cost of development.',players:'Vladimir Kramnik; Vishy Anand used it in world championship matches.'},
  {id:'trompowsky',name:'Trompowsky Attack',eco:'A45',group:'d4nf6',key:3,side:'w',level:'club',moves:'d4 Nf6 Bg5 Ne4 Bf4 c5 f3 Qa5+ c3 Nf6',
   sum:'2.Bg5 attacks the f6 knight straight away and avoids heavy theory.',
-  ideas:['White may take on f6 to double Black\'s pawns.','Black often chases the bishop with ...Ne4.'],
+  ideas:['White may take on f6 to double Black\'s pawns.','Black often chases the vizier with ...Ne4.'],
   mistake:'White forgetting the b2 pawn: ...Qb6 or ...Qa5+ ideas are common.',players:'Octávio Trompowsky; Julian Hodgson.'},
  {id:'indian',name:'Indian Defence',eco:'A45–A50',group:'d4nf6',key:2,side:'b',level:'club',moves:'d4 Nf6',
   sum:'1...Nf6 controls e4 with a piece instead of a pawn. It leads to the "Indian" defences.',
-  ideas:['Black keeps flexible: King\'s Indian, Nimzo-Indian, Grünfeld, Benoni and more.','Black often fianchettoes a bishop.'],
+  ideas:['Black keeps flexible: King\'s Indian, Nimzo-Indian, Grünfeld, Benoni and more.','Black often fianchettoes a vizier.'],
   mistake:'Letting White build an ideal centre without a plan to attack it.',players:'The modern main reply to 1.d4.'},
  {id:'kid',name:'King\'s Indian Defence',eco:'E60–E99',group:'d4nf6',key:8,side:'b',level:'club',drill:'kid',moves:'d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 O-O Nc6 d5 Ne7',
   sum:'Black lets White take the centre, castles fast, then strikes with ...e5 and attacks the king.',
   ideas:['After d5 Black usually attacks on the kingside with ...f5.','White attacks on the queenside with c5.'],
   mistake:'Black attacking too slowly: it is a race.',players:'Garry Kasparov, Bobby Fischer, Hikaru Nakamura.'},
  {id:'grunfeld',name:'Grünfeld Defence',eco:'D70–D99',group:'d4nf6',key:6,side:'b',level:'expert',drill:'grunfeld',moves:'d4 Nf6 c4 g6 Nc3 d5 cxd5 Nxd5 e4 Nxc3 bxc3 Bg7 Nf3 c5 Be3',
-  sum:'Black invites a big white centre, then attacks it with the g7 bishop and ...c5.',
+  sum:'Black invites a big white centre, then attacks it with the g7 vizier and ...c5.',
   ideas:['Black pressures d4 with ...c5, ...Nc6 and ...Bg4.','White must keep the centre together.'],
   mistake:'Black being too slow to pressure d4.',players:'Ernst Grünfeld; Bobby Fischer and Garry Kasparov.'},
  {id:'nimzo',name:'Nimzo-Indian Defence',eco:'E20–E59',group:'d4nf6',key:6,side:'b',level:'club',drill:'nimzo',moves:'d4 Nf6 c4 e6 Nc3 Bb4 Qc2 O-O a3 Bxc3+ Qxc3 b6',
   sum:'Black pins the c3 knight with ...Bb4 to fight for e4 and may double White\'s pawns.',
-  ideas:['Black gives the bishop pair to damage White\'s structure.','Very flexible and respected at every level.'],
-  mistake:'Black giving up the bishop without getting anything for it.',players:'Aron Nimzowitsch; Anatoly Karpov, Garry Kasparov.'},
+  ideas:['Black gives the vizier pair to damage White\'s structure.','Very flexible and respected at every level.'],
+  mistake:'Black giving up the vizier without getting anything for it.',players:'Aron Nimzowitsch; Anatoly Karpov, Garry Kasparov.'},
  {id:'qid',name:'Queen\'s Indian Defence',eco:'E12–E19',group:'d4nf6',key:6,side:'b',level:'club',moves:'d4 Nf6 c4 e6 Nf3 b6 g3 Ba6 b3 Bb4+ Bd2 Be7',
-  sum:'Black fianchettoes the queen\'s bishop to control e4 from a distance.',
+  sum:'Black fianchettoes the queen\'s vizier to control e4 from a distance.',
   ideas:['Solid and strategic: Black controls the light squares.','White often fianchettoes too.'],
   mistake:'Black allowing White a free e4 push.',players:'Anatoly Karpov.'},
  {id:'bogo',name:'Bogo-Indian Defence',eco:'E11',group:'d4nf6',key:6,side:'b',level:'club',moves:'d4 Nf6 c4 e6 Nf3 Bb4+ Bd2 Qe7 g3 Nc6 Bg2',
   sum:'Black gives a check with ...Bb4+ to disturb White\'s development.',
-  ideas:['Black often trades the bishop for White\'s on d2.','A solid, low-theory choice.'],
+  ideas:['Black often trades the vizier for White\'s on d2.','A solid, low-theory choice.'],
   mistake:'Black drifting into a passive position with no pawn break.',players:'Efim Bogoljubov.'},
  {id:'benoni',name:'Benoni Defence',eco:'A56, A60–A79',group:'d4nf6',key:4,side:'b',level:'expert',moves:'d4 Nf6 c4 c5 d5 e6 Nc3 exd5 cxd5 d6 e4 g6 Nf3 Bg7 Be2 O-O',
   sum:'Black creates an unbalanced pawn structure: White gets the centre, Black gets queenside play.',
-  ideas:['Black\'s g7 bishop is strong; Black plays ...a6 and ...b5.','White pushes e4–e5 to break through.'],
+  ideas:['Black\'s g7 vizier is strong; Black plays ...a6 and ...b5.','White pushes e4–e5 to break through.'],
   mistake:'Black allowing e5 at a good moment for White.',players:'Mikhail Tal, Bobby Fischer.'},
  {id:'benko',name:'Benko Gambit',eco:'A57–A59',group:'d4nf6',key:6,side:'b',level:'expert',moves:'d4 Nf6 c4 c5 d5 b5 cxb5 a6 bxa6 Bxa6 Nc3 d6 e4 Bxf1 Kxf1 g6',
   sum:'Black gives a queenside pawn for long-lasting pressure on the a- and b-files.',
-  ideas:['Black\'s rooks and the g7 bishop attack the queenside.','White tries to keep the extra pawn safe and reach an endgame.'],
+  ideas:['Black\'s rooks and the g7 vizier attack the queenside.','White tries to keep the extra pawn safe and reach an endgame.'],
   mistake:'Black trading too many pieces: the pressure disappears and the pawn is just lost.',players:'Pal Benko.'},
  {id:'budapest',name:'Budapest Gambit',eco:'A51–A52',group:'d4nf6',key:4,side:'b',level:'club',moves:'d4 Nf6 c4 e5 dxe5 Ng4 Bf4 Nc6 Nf3 Bb4+ Nbd2 Qe7',
   sum:'Black offers the e-pawn and usually wins it back with active piece play.',
@@ -1170,12 +1170,12 @@ const OPENING_BOOK=[
   mistake:'Forgetting that the black king is a bit exposed after ...f5.',players:'Magnus Carlsen and Hikaru Nakamura have used it.'},
  {id:'leningrad',name:'Dutch: Leningrad',eco:'A86–A89',group:'dutch',key:6,alt:['d4 f5 c4 Nf6 g3 g6'],side:'b',level:'expert',moves:'d4 f5 g3 Nf6 Bg2 g6 Nf3 Bg7 O-O O-O c4 d6 Nc3 Qe8',
   sum:'Black combines ...f5 with a King\'s Indian-style fianchetto.',
-  ideas:['Black plans ...e5 with a strong bishop on g7.','Very dynamic and fighting.'],
-  mistake:'Allowing White a free d5 push that blocks the g7 bishop.',players:'Vladimir Malaniuk.'},
+  ideas:['Black plans ...e5 with a strong vizier on g7.','Very dynamic and fighting.'],
+  mistake:'Allowing White a free d5 push that blocks the g7 vizier.',players:'Vladimir Malaniuk.'},
  {id:'stonewall',name:'Dutch: Stonewall',eco:'A90–A95',group:'dutch',key:8,side:'b',level:'club',moves:'d4 f5 c4 Nf6 g3 e6 Bg2 d5 Nf3 c6 O-O Bd6',
   sum:'Black builds a "stone wall" of pawns on c6, d5, e6 and f5.',
   ideas:['Black gets a firm grip on e4 and attacks on the kingside.','The e5 square is a hole that White can use.'],
-  mistake:'Black ignoring the e5 hole and the bad light-squared bishop.',players:'Magnus Carlsen; Vladimir Kramnik.'},
+  mistake:'Black ignoring the e5 hole and the bad light-squared vizier.',players:'Magnus Carlsen; Vladimir Kramnik.'},
  // ---- Flank openings
  {id:'reti',name:'Réti Opening',eco:'A04–A09',group:'flank',key:1,side:'w',level:'club',moves:'Nf3 d5 c4 e6 g3 Nf6 Bg2 Be7 O-O O-O',
   sum:'White starts with the knight and attacks the centre from the side instead of occupying it.',
@@ -1199,23 +1199,23 @@ const OPENING_BOOK=[
   mistake:'Copying every move: sooner or later it fails.',players:'Many world championship games.'},
  {id:'bird',name:'Bird\'s Opening',eco:'A02–A03',group:'flank',key:1,side:'w',level:'club',moves:'f4 d5 Nf3 Nf6 e3 g6 b3 Bg7 Bb2 O-O Be2 c5 O-O Nc6',
   sum:'1.f4 grabs the e5 square, like a Dutch Defence with an extra move.',
-  ideas:['White controls e5 with f4, Nf3 and a bishop on b2.','Kingside attacks are common, for example Qe1–h4 and a rook lift via f3.','f4 slightly weakens White\'s king on the e1–h4 diagonal.'],
+  ideas:['White controls e5 with f4, Nf3 and a vizier on b2.','Kingside attacks are common, for example Qe1–h4 and a rook lift via f3.','f4 slightly weakens White\'s king on the e1–h4 diagonal.'],
   mistake:'Forgetting the king: 1...e5! (From\'s Gambit) punishes careless play.',players:'Henry Bird (1800s England) and Bent Larsen.'},
  {id:'fromgambit',name:'Bird\'s: From\'s Gambit',eco:'A02',group:'flank',key:2,side:'b',level:'club',moves:'f4 e5 fxe5 d6 exd6 Bxd6 Nf3 g5',
   sum:'Black answers Bird\'s Opening by giving a pawn to attack White\'s weakened king.',
   ideas:['Black gets quick development and threats along the e1–h4 diagonal.','...g5–g4 kicks White\'s knight, the main defender.'],
   mistake:'The trap: after 3...Bxd6, 4.Nc3?? Qh4+ 5.g3 Qxg3+ 6.hxg3 Bxg3# is checkmate. 4.Nf3 is correct.',players:'Named after the Danish player Severin From.'},
  {id:'larsen',name:'Nimzo-Larsen Attack',eco:'A01',group:'flank',key:1,side:'w',level:'club',moves:'b3 e5 Bb2 Nc6 e3 d5 Bb5 Bd6 Nf3',
-  sum:'1.b3 prepares Bb2, aiming the bishop down the long diagonal at Black\'s centre and king.',
-  ideas:['The b2 bishop pressures e5.','Bb5, pinning the c6 knight, is a typical follow-up.'],
+  sum:'1.b3 prepares Bb2, aiming the vizier down the long diagonal at Black\'s centre and king.',
+  ideas:['The b2 vizier pressures e5.','Bb5, pinning the c6 knight, is a typical follow-up.'],
   mistake:'Letting Black build a huge centre unchallenged.',players:'Bent Larsen and Aron Nimzowitsch; Magnus Carlsen has used it.'},
  {id:'kingsfianchetto',name:'King\'s Fianchetto Opening',eco:'A00',group:'flank',key:1,side:'w',level:'beginner',moves:'g3 d5 Bg2 e5 d3 Nf6 Nf3 Nc6 O-O Be7',
   sum:'1.g3 prepares Bg2. It often becomes a King\'s Indian Attack or English.',
-  ideas:['Safe king and a long-range bishop.','White decides later how to fight for the centre.'],
+  ideas:['Safe king and a long-range vizier.','White decides later how to fight for the centre.'],
   mistake:'Being too passive while Black takes the whole centre.',players:'Used as a flexible move order by many strong players.'},
  {id:'polish',name:'Polish (Sokolsky) Opening',eco:'A00',group:'flank',key:1,side:'w',level:'club',moves:'b4 e5 Bb2 Bxb4 Bxe5 Nf6',
-  sum:'1.b4 grabs queenside space and offers the b-pawn for quick bishop play.',
-  ideas:['White\'s bishop on b2 hits e5 and the long diagonal.','Black can grab the pawn or build a classical centre.'],
+  sum:'1.b4 grabs queenside space and offers the b-pawn for quick vizier play.',
+  ideas:['White\'s vizier on b2 hits e5 and the long diagonal.','Black can grab the pawn or build a classical centre.'],
   mistake:'White losing the b-pawn without getting enough play.',players:'Yuri Sokolsky; Savielly Tartakower.'}
 ];
 const BOOK_GROUPS=[['e4','1.e4: first moves'],['e4e5','1.e4 e5: open games'],['sicilian','Sicilian Defence'],['french','French Defence'],['caro','Caro-Kann Defence'],['e4other','Other replies to 1.e4'],['d4','1.d4: first moves'],['d4d5','1.d4 d5: Queen\'s Gambit & co'],['d4nf6','1.d4 Nf6: Indian defences'],['dutch','Dutch Defence'],['flank','Flank openings (1.c4, 1.Nf3, 1.f4…)']];
@@ -1338,14 +1338,16 @@ const SHAPES={
   base:'<path d="M22 93 C22 86 28 82.5 34 82 L66 82 C72 82.5 78 86 78 93 Z"/><rect x="28" y="76" width="44" height="8" rx="3.5"/>',
   P:'<path d="M37 77 C39 67 42.5 60 44 55 L56 55 C57.5 60 61 67 63 77 Z"/><ellipse cx="50" cy="54" rx="13" ry="4.2"/><circle cx="50" cy="39" r="12.5"/>',
   R:'<path d="M34 77 L37.5 45 L62.5 45 L66 77 Z"/><rect x="30" y="38" width="40" height="9" rx="2.5"/><path d="M30 40 L30 21 L38.5 21 L38.5 27.5 L45.5 27.5 L45.5 21 L54.5 21 L54.5 27.5 L61.5 27.5 L61.5 21 L70 21 L70 40 Z"/>',
-  B:'<path d="M38 77 C40 67 43.5 61 45 57 L55 57 C56.5 61 60 67 62 77 Z"/><ellipse cx="50" cy="56" rx="14" ry="4.4"/><path d="M50 19 C60.5 27 65 37.5 61 47 C58.5 52 54.5 54 50 54 C45.5 54 41.5 52 39 47 C35 37.5 39.5 27 50 19 Z"/><circle cx="50" cy="15.5" r="4.6"/>',
+  B:'<path d="M38 77 C40 67 43.5 61 45 57 L55 57 C56.5 61 60 67 62 77 Z"/><ellipse cx="50" cy="56" rx="14" ry="4.4"/><path d="M50 18 C51.5 24.5 63.5 31 63.5 42 C63.5 50 57.5 54 50 54 C42.5 54 36.5 50 36.5 42 C36.5 31 48.5 24.5 50 18 Z"/><circle cx="50" cy="14.5" r="4"/>',
   Q:'<path d="M36 77 C39 65 43 57 44 49 L56 49 C57 57 61 65 64 77 Z"/><ellipse cx="50" cy="48" rx="15" ry="4.6"/><path d="M34 45 L29 22 L39.5 35 L40.5 17 L46 33.5 L50 13.5 L54 33.5 L59.5 17 L60.5 35 L71 22 L66 45 Z"/><circle cx="29" cy="20.5" r="3.6"/><circle cx="40.5" cy="15.5" r="3.6"/><circle cx="50" cy="11.5" r="3.8"/><circle cx="59.5" cy="15.5" r="3.6"/><circle cx="71" cy="20.5" r="3.6"/>',
-  K:'<path d="M36 77 C39 65 43 57 44 49 L56 49 C57 57 61 65 64 77 Z"/><ellipse cx="50" cy="48" rx="15" ry="4.6"/><path d="M34.5 45 C31 35 37 28.5 50 28.5 C63 28.5 69 35 65.5 45 Z"/><rect x="43.5" y="22" width="13" height="8" rx="2"/><path d="M47 3.5 L53 3.5 L53 9 L58.5 9 L58.5 15 L53 15 L53 23 L47 23 L47 15 L41.5 15 L41.5 9 L47 9 Z"/>',
+  K:'<path d="M36 77 C39 65 43 57 44 49 L56 49 C57 57 61 65 64 77 Z"/><ellipse cx="50" cy="48" rx="15" ry="4.6"/><path d="M34.5 45 C31 35 37 28.5 50 28.5 C63 28.5 69 35 65.5 45 Z"/><rect x="43.5" y="22" width="13" height="8" rx="2"/><path d="M50 3.5 L57.5 12.5 L50 23 L42.5 12.5 Z"/>',
   N:'<path d="M33 77 C33 67 37 61 43 55.5 C39 55 34 56.5 30 58.5 C26 60 21.5 57 22.5 51.5 C23.5 46 30 40 35.5 33.5 C39 28.5 43 23 47 18.5 L49.5 9.5 L54.5 17.5 C65 21.5 71 32 70.5 46 C70 58 66 68 67 77 Z"/>'
 };
+// Small carved details. Pieces are kept non-figurative: the knight has no face, the king a jewel (no cross),
+// and the vizier (the vizier's place) a palace-dome top (no mitre).
 const DETAIL={
-  B:'<path d="M54 28 L45.5 39" stroke-width="2.6" stroke-linecap="round" fill="none"/>',
-  N:'<circle cx="43.5" cy="31.5" r="2.2" stroke="none"/><path d="M26.5 51 l2.5 -1.2" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M57 21 C64 27 67 36 66.5 46 M53.5 26 C59 32 61 40 60.5 50" stroke-width="1.4" fill="none" opacity=".55" stroke-linecap="round"/>'
+  B:'<path d="M39 46 C45.5 49.5 54.5 49.5 61 46" stroke-width="2.2" stroke-linecap="round" fill="none"/>',
+  K:'<path d="M42.5 12.5 H57.5" stroke-width="1.3" fill="none" opacity=".7"/>'
 };
 function pieceSvg(type,color,setKey){
   const set=PIECE_SETS[setKey||settings.pieces]||PIECE_SETS.wood, w=set[color], gs=set.grain;
@@ -1568,7 +1570,7 @@ function clockUndo(s){ const c=s.clock; if(!c) return; clockStop(c); c.flag=null
 const clockLow=c=>Math.max(20000,c.base*0.1); // red from 20 s, or 10% of the starting time in long games
 function clockFmt(ms){ if(ms<20000) return (Math.floor(ms/100)/10).toFixed(1); const t=Math.ceil(ms/1000), m=Math.floor(t/60); return m+':'+String(t%60).padStart(2,'0'); }
 // Out of time: the opponent wins, unless they could never checkmate (FIDE rule, simplified): they have only
-// their king, or a single bishop or knight while the player who ran out has only a king.
+// their king, or a single vizier or knight while the player who ran out has only a king.
 function timeoutResult(eng,flagged){
   const win=flagged==='w'?'b':'w', name=win==='w'?'White':'Black', side=c=>eng.board().filter(p=>p&&colorOf(p)===c&&p.toLowerCase()!=='k').map(p=>p.toLowerCase()), pcs=side(win);
   if(!pcs.length||(pcs.length===1&&(pcs[0]==='n'||pcs[0]==='b')&&!side(flagged).length)) return {title:'Time\'s up',sub:`Draw: ${name} cannot checkmate with what is left`,win:null};
@@ -2229,12 +2231,12 @@ const LESSONS=[
     {fen:'4k3/P7/8/8/8/8/8/4K3 w - - 0 1',task:'Push the pawn to the last row. It becomes a queen!',goal:{to:['a8']},sol:'a7a8q',ok:'Promotion! A pawn that reaches the end turns into a new piece.'}]},
   {id:'rook',title:'The rook',about:'Rooks move in straight lines: up, down, left or right, as far as they like.',steps:[
     {fen:'7k/8/8/8/8/8/8/R3K3 w - - 0 1',task:'Slide the rook up to the glowing square.',goal:{to:['a6'],pc:'R'},sol:'a1a6',ok:'Straight up the board.'},
-    {fen:'7k/8/R5b1/8/8/8/8/4K3 w - - 0 1',task:'Now slide sideways and capture the bishop.',goal:{to:['g6'],pc:'R'},sol:'a6g6',ok:'Captured! You take a piece by moving onto its square.'}]},
-  {id:'bishop',title:'The bishop',about:'Bishops move diagonally, as far as they like. Each bishop stays on one colour all game.',steps:[
-    {fen:'7k/8/8/8/8/8/8/2B1K3 w - - 0 1',task:'Move the bishop along the diagonal to the glowing square.',goal:{to:['h6'],pc:'B'},sol:'c1h6',ok:'All the way along the diagonal.'},
-    {fen:'7k/8/8/1r6/8/8/8/4KB2 w - - 0 1',task:'Capture the rook with your bishop.',goal:{to:['b5'],pc:'B'},sol:'f1b5',ok:'A rook is worth more than a bishop. Great trade!'}]},
-  {id:'queen',title:'The queen',about:'The queen moves like a rook and a bishop together: straight or diagonal, as far as she likes. She is your strongest piece.',steps:[
-    {fen:'7k/8/8/8/n7/8/8/3QK3 w - - 0 1',task:'Capture the knight with a diagonal move.',goal:{to:['a4'],pc:'Q'},sol:'d1a4',ok:'Diagonal, like a bishop.'},
+    {fen:'7k/8/R5b1/8/8/8/8/4K3 w - - 0 1',task:'Now slide sideways and capture the vizier.',goal:{to:['g6'],pc:'R'},sol:'a6g6',ok:'Captured! You take a piece by moving onto its square.'}]},
+  {id:'bishop',title:'The vizier',about:'Viziers move diagonally, as far as they like. Each vizier stays on one colour all game. In written moves it has the letter B, as in chess books.',steps:[
+    {fen:'7k/8/8/8/8/8/8/2B1K3 w - - 0 1',task:'Move the vizier along the diagonal to the glowing square.',goal:{to:['h6'],pc:'B'},sol:'c1h6',ok:'All the way along the diagonal.'},
+    {fen:'7k/8/8/1r6/8/8/8/4KB2 w - - 0 1',task:'Capture the rook with your vizier.',goal:{to:['b5'],pc:'B'},sol:'f1b5',ok:'A rook is worth more than a vizier. Great trade!'}]},
+  {id:'queen',title:'The queen',about:'The queen moves like a rook and a vizier together: straight or diagonal, as far as she likes. She is your strongest piece.',steps:[
+    {fen:'7k/8/8/8/n7/8/8/3QK3 w - - 0 1',task:'Capture the knight with a diagonal move.',goal:{to:['a4'],pc:'Q'},sol:'d1a4',ok:'Diagonal, like a vizier.'},
     {fen:'7k/3r4/8/8/8/8/8/3QK3 w - - 0 1',task:'Now capture the rook with a straight move.',goal:{to:['d7'],pc:'Q'},sol:'d1d7',ok:'Straight, like a rook. That is why the queen is so strong.'}]},
   {id:'knight',title:'The knight',about:'Knights move in an L: two squares one way, then one square to the side. They are the only piece that can jump over others.',steps:[
     {fen:'7k/8/8/8/8/8/PPPPPPPP/1N2K3 w - - 0 1',task:'Jump the knight over the pawns to a glowing square.',goal:{to:['a3','c3'],pc:'N'},sol:'b1c3',ok:'Jump! Nothing can block a knight.'},
@@ -2244,9 +2246,9 @@ const LESSONS=[
     {fen:'7k/8/8/8/8/8/3r4/4K3 w - - 0 1',task:'The rook guards the second row, so the king cannot go there. Tap the king to see his safe squares, then capture the rook.',goal:{to:['d2'],pc:'K'},sol:'e1d2',ok:'The king can capture too, when the piece is not protected.'}]},
   {id:'check',title:'Check',about:'When a piece attacks the king, that is check. The king must get out of check straight away: move away, block, or capture the attacker.',steps:[
     {fen:'4k3/8/8/8/8/8/8/R3K3 w - - 0 1',task:'Give check: attack the black king with your rook.',goal:{check:true},sol:'a1a8',ok:'Check! The black king is under attack.'},
-    {fen:'4k3/8/8/8/1b6/8/8/4K3 w - - 0 1',task:'The bishop is giving you check. Move your king to safety.',goal:{pc:'K'},sol:'e1e2',ok:'Escaped! Moving away is one way out of check.'},
+    {fen:'4k3/8/8/8/1b6/8/8/4K3 w - - 0 1',task:'The vizier is giving you check. Move your king to safety.',goal:{pc:'K'},sol:'e1e2',ok:'Escaped! Moving away is one way out of check.'},
     {fen:'4k3/8/8/8/1b6/8/8/1N2K3 w - - 0 1',task:'Check again! This time block it by putting your knight in the way.',goal:{to:['c3','d2'],pc:'N'},sol:'b1d2',ok:'Blocked! A piece in the way stops the check.'},
-    {fen:'4k3/8/8/Q7/1b6/8/8/4K3 w - - 0 1',task:'Check once more. Capture the attacking bishop.',goal:{to:['b4'],pc:'Q'},sol:'a5b4',ok:'Capturing the attacker is the third way out of check.'}]},
+    {fen:'4k3/8/8/Q7/1b6/8/8/4K3 w - - 0 1',task:'Check once more. Capture the attacking vizier.',goal:{to:['b4'],pc:'Q'},sol:'a5b4',ok:'Capturing the attacker is the third way out of check.'}]},
   {id:'mate',title:'Checkmate',about:'Checkmate is check with no way out. The king cannot escape, block or capture, and the game is won!',steps:[
     {fen:'6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1',task:'The black king is stuck behind his pawns. Checkmate him with the rook.',goal:{mate:true},sol:'a1a8',ok:'Checkmate! This is called a back-rank mate.'},
     {fen:'7k/8/6K1/8/8/8/8/Q7 w - - 0 1',task:'Your king and queen work together. Find checkmate in one move.',goal:{mate:true},sol:'a1a8',ok:'Checkmate! The king guards the escape squares.'}]},
@@ -2307,11 +2309,11 @@ const FAMOUS=[
    about:'Played in a box at the Paris opera during a performance. Morphy, perhaps the most gifted player of the 1800s, shows how fast development and open lines crush an opponent who wastes time.',
    moves:'e4 e5 Nf3 d6 d4 Bg4 dxe5 Bxf3 Qxf3 dxe5 Bc4 Nf6 Qb3 Qe7 Nc3 c6 Bg5 b5 Nxb5 cxb5 Bxb5+ Nbd7 O-O-O Rd8 Rxd7 Rxd7 Rd1 Qe6 Bxd7+ Nxd7 Qb8+ Nxb8 Rd8#',
    notes:{'2...':'The Philidor Defence: solid but a bit passive.',
-    '3...':'Pinning the knight. Black will soon have to give up this bishop.',
+    '3...':'Pinning the knight. Black will soon have to give up this vizier.',
     '5.':'White recaptures with the queen, which now eyes f7 and b7.',
-    '6.':'?Bc4! Develop with a threat: the bishop joins the queen in aiming at f7.',
+    '6.':'?Bc4! Develop with a threat: the vizier joins the queen in aiming at f7.',
     '7.':'?Qb3! A double attack: f7 and the b7 pawn are both hit.',
-    '7...':'Black blocks with the queen, but now the f8 bishop is stuck behind it.',
+    '7...':'Black blocks with the queen, but now the f8 vizier is stuck behind it.',
     '9.':'Every White piece comes out with tempo, while Black\'s kingside sleeps.',
     '10.':'?Nxb5! A sacrifice to rip open lines toward the black king. Morphy cares about time, not material.',
     '11.':'Pin! The knight on d7 cannot move without exposing the king.',
@@ -2320,28 +2322,28 @@ const FAMOUS=[
     '14.':'Another rook joins. Black is completely tied up.',
     '15.':'?Bxd7+! Removing a defender of d8...',
     '16.':'?Qb8+!! The famous queen sacrifice. The knight must take, leaving d8 unguarded.',
-    '17.':'Checkmate with just a rook and bishop, while Black still has a queen and rook at home. Development beats material.'}},
+    '17.':'Checkmate with just a rook and vizier, while Black still has a queen and rook at home. Development beats material.'}},
   {id:'legal',heroName:'Légal',title:'Légal\'s Trap',white:'Sire de Légal',black:'Saint Brie',where:'Paris, 1750',hero:'w',
    about:'One of the oldest recorded traps. Légal, the strongest player in Paris in his day, lets his queen be taken and mates with his minor pieces. A must-know pattern for beginners.',
    moves:'e4 e5 Nf3 d6 Bc4 Bg4 Nc3 g6 Nxe5 Bxd1 Bxf7+ Ke7 Nd5#',
-   notes:{'3...':'The bishop pins the knight to the queen... or does it?',
+   notes:{'3...':'The vizier pins the knight to the queen... or does it?',
     '4...':'A slow move. Black never develops a piece that guards the king.',
     '5.':'?Nxe5!! White breaks the "pin" and leaves the queen hanging.',
     '5...':'Greedy! Black grabs the queen. (Taking the knight was better.)',
     '6.':'?Bxf7+! Check, and the king has just one square.',
     '7.':'?Nd5# Checkmate by three minor pieces. Lesson: a pin to a queen is not a real pin.'}},
   {id:'immortal',heroName:'Anderssen',title:'The Immortal Game',white:'Adolf Anderssen',black:'Lionel Kieseritzky',where:'London, 1851',hero:'w',
-   about:'A friendly game played during the first international tournament. Anderssen gives away both rooks, a bishop and his queen, and still mates. The most famous attacking game of the romantic era.',
+   about:'A friendly game played during the first international tournament. Anderssen gives away both rooks, a vizier and his queen, and still mates. The most famous attacking game of the romantic era.',
    moves:'e4 e5 f4 exf4 Bc4 Qh4+ Kf1 b5 Bxb5 Nf6 Nf3 Qh6 d3 Nh5 Nh4 Qg5 Nf5 c6 g4 Nf6 Rg1 cxb5 h4 Qg6 h5 Qg5 Qf3 Ng8 Bxf4 Qf6 Nc3 Bc5 Nd5 Qxb2 Bd6 Bxg1 e5 Qxa1+ Ke2 Na6 Nxg7+ Kd8 Qf6+ Nxf6 Be7#',
    notes:{'2.':'The King\'s Gambit: White offers a pawn to open the f-file and speed up development.',
     '3...':'Check! White\'s king must move and loses the right to castle.',
-    '4...':'The Bryan Counter-Gambit: Black gives a pawn back to pull the bishop aside.',
+    '4...':'The Bryan Counter-Gambit: Black gives a pawn back to pull the vizier aside.',
     '9.':'The knight on f5 is a monster, eyeing g7 and d6.',
     '10.':'?g4! Chasing the black queen with pawns while gaining space.',
-    '11.':'Anderssen calmly lets the bishop go. He is playing for the attack.',
+    '11.':'Anderssen calmly lets the vizier go. He is playing for the attack.',
     '15.':'?Bxf4 Winning the pawn back and bringing another piece into the attack.',
     '17.':'?Nd5! Ignoring the threat to b2 and the rook on a1. The attack matters more.',
-    '18.':'?Bd6!! Offering the second rook too. The bishop takes away f8 and e7 from the black king.',
+    '18.':'?Bd6!! Offering the second rook too. The vizier takes away f8 and e7 from the black king.',
     '19.':'?e5! Shutting the black queen out of the defence. Now Black has a pile of extra material, and no moves that help.',
     '20.':'White has given away both rooks, yet the black king is trapped.',
     '21.':'?Nxg7+ The knight drives the king out.',
@@ -2353,12 +2355,12 @@ const FAMOUS=[
    notes:{'4.':'The Evans Gambit: a pawn sacrificed to build a big centre quickly.',
     '7.':'Castling and offering more material. White wants open lines.',
     '9.':'?e5! Gaining space and cutting the black queen off from the kingside.',
-    '11.':'?Ba3 The bishop stops Black from castling kingside: f8 is covered.',
+    '11.':'?Ba3 The vizier stops Black from castling kingside: f8 is covered.',
     '17.':'?Nf6+!! Opening the g-file... but the real target is the e-file and the d7 square.',
     '19.':'?Rad1!! A quiet move in the middle of a fight. White ignores the threat of mate on g2 because his own attack comes first.',
     '20.':'?Rxe7+! Clearing the way...',
     '21.':'?Qxd7+!! The queen sacrifice that breaks open the king.',
-    '22.':'?Bf5+ A double check: the rook on d1 and the bishop both give check.',
+    '22.':'?Bf5+ A double check: the rook on d1 and the vizier both give check.',
     '24.':'?Bxe7# Checkmate. Every White move after 19 was a check or a sacrifice.'}},
   {id:'reti',heroName:'Réti',title:'Réti\'s Quick Mate',white:'Richard Réti',black:'Savielly Tartakower',where:'Vienna, 1910',hero:'w',
    about:'Two future grandmasters in a casual game. Black grabs material with his queen early, and Réti punishes it with a stunning queen sacrifice in just 11 moves.',
@@ -2369,7 +2371,7 @@ const FAMOUS=[
     '8.':'?O-O-O! Castling and putting the rook on the open d-file, opposite the black king.',
     '8...':'Black grabs the knight. Now look at the d-file...',
     '9.':'?Qd8+!! The queen is offered. Taking it is forced.',
-    '10.':'?Bg5+ Double check: the bishop and the rook on d1 both attack the king.',
+    '10.':'?Bg5+ Double check: the vizier and the rook on d1 both attack the king.',
     '11.':'?Bd8# Checkmate. Black\'s queen and knights are all far away.'}},
   {id:'century',heroName:'Fischer',title:'The Game of the Century',white:'Donald Byrne',black:'Bobby Fischer',where:'New York, 1956',hero:'b',
    about:'Bobby Fischer was 13 years old. His queen sacrifice against a leading American master became known as "the game of the century". Fischer later became world champion.',
@@ -2381,9 +2383,9 @@ const FAMOUS=[
     '16...':'?Rfe8+ Check, and the white king has to walk.',
     '17...':'?Be6!!! The famous move. Fischer gives up his queen for a crushing attack.',
     '18...':'?Bxc4+ Now begins a "windmill" of discovered checks.',
-    '19...':'Knight and bishop work together: every knight move is a check from the bishop.',
+    '19...':'Knight and vizier work together: every knight move is a check from the vizier.',
     '22...':'The knight has collected the d4 pawn and returns to attack the queen and rook.',
-    '23...':'Fischer has a rook, two bishops and a knight for the queen. Far more than enough.',
+    '23...':'Fischer has a rook, two viziers and a knight for the queen. Far more than enough.',
     '25...':'Black picks up a rook as well. The material count is now hugely in Black\'s favour.',
     '29...':'The long endgame begins. Black\'s pieces coordinate perfectly to hunt the king.',
     '41...':'?Rc2# Checkmate, delivered by a 13-year-old.'}}
@@ -2615,7 +2617,7 @@ const pzThemeOf=(p=>p&&typeof p==='object'?p:{})(store.get('pzThemeOf',{})); // 
 const wins=lvl=>gameLog.filter(g=>g.res==='win'&&g.lvl>=lvl).length;
 const COURSE=[
   {level:'First steps',items:[
-    {t:'Meet the pieces',d:'How the pawn, rook, bishop, queen, knight and king move.',done:()=>['pawn','rook','bishop','queen','knight','king'].every(i=>learnDone[i]),go:()=>startLesson(LESSONS.find(l=>!learnDone[l.id])||LESSONS[0])},
+    {t:'Meet the pieces',d:'How the pawn, rook, vizier, queen, knight and king move.',done:()=>['pawn','rook','bishop','queen','knight','king'].every(i=>learnDone[i]),go:()=>startLesson(LESSONS.find(l=>!learnDone[l.id])||LESSONS[0])},
     {t:'Check and checkmate',d:'Attack the king, and trap it for good.',done:()=>learnDone.check&&learnDone.mate,go:()=>startLesson(LESSONS.find(l=>l.id==='check'&&!learnDone.check)||LESSONS.find(l=>l.id==='mate'))},
     {t:'Special moves',d:'Castling and en passant. (Promotion is in the pawn lesson.)',done:()=>!!learnDone.special,go:()=>startLesson(LESSONS.find(l=>l.id==='special'))},
     {t:'Your first game',d:'Play a whole game against Twig, the friendliest computer.',done:()=>gameLog.length>0,go:()=>coursePlay(0)},
@@ -2686,13 +2688,13 @@ const BADGES=[ // p: progress shown on a locked badge, as [have, need]
   {id:'hot',i:'🔥',t:'Hot streak',d:'Solve 5 puzzles in a row without a hint',ok:x=>x.pzBest>=5,p:x=>[x.pzBest,5]},
   {id:'rmate',i:'🏰',t:'Rook mate',d:'Finish the rook checkmate drill',ok:()=>!!egStars.rook},
   {id:'review5',i:'🔍',t:'Detective',d:'Look back at 5 of your games with Review',ok:x=>x.reviews>=5,p:x=>[x.reviews,5]},
-  {id:'pz50',i:'🧠',t:'Puzzle fan',d:'Solve 50 puzzles',ok:x=>x.puzzles>=50,p:x=>[x.puzzles,50]},
+  {id:'pz50',i:'💡',t:'Puzzle fan',d:'Solve 50 puzzles',ok:x=>x.puzzles>=50,p:x=>[x.puzzles,50]},
   {id:'open5',i:'📖',t:'Opening explorer',d:'Practise 5 openings',ok:x=>x.openings>=5,p:x=>[x.openings,5]},
   {id:'hist',i:'🏛️',t:'Historian',d:'Replay 3 famous games',ok:x=>x.famous>=3,p:x=>[x.famous,3]},
   {id:'reader',i:'📜',t:'Bookworm',d:'Read every article',ok:x=>x.reads>=READINGS.length,p:x=>[x.reads,READINGS.length]},
   {id:'giant',i:'🪓',t:'Giant slayer',d:`Beat ${LEVELS[3].name} or a stronger computer`,ok:x=>x.best>=3},
   {id:'endall',i:'🏁',t:'Endgame expert',d:'Finish every endgame drill',ok:x=>x.egDone>=ENDGAMES.length,p:x=>[x.egDone,ENDGAMES.length]},
-  {id:'pz200',i:'🦉',t:'Puzzle master',d:'Solve 200 puzzles',ok:x=>x.puzzles>=200,p:x=>[x.puzzles,200]},
+  {id:'pz200',i:'💎',t:'Puzzle master',d:'Solve 200 puzzles',ok:x=>x.puzzles>=200,p:x=>[x.puzzles,200]},
   {id:'iron',i:'🌲',t:'Ironwood',d:`Beat ${LEVELS[LEVELS.length-1].name}, the strongest computer`,ok:x=>x.best>=LEVELS.length-1},
   {id:'path',i:'🧭',t:'Path complete',d:'Finish every step of your chess path',ok:x=>x.pathDone>=x.pathTotal,p:x=>[x.pathDone,x.pathTotal]}];
 const badgesGot=(p=>{ const o={}; if(p&&typeof p==='object') for(const b of BADGES) if(typeof p[b.id]==='number') o[b.id]=p[b.id]; return o; })(store.get('badges',{}));
@@ -2725,7 +2727,7 @@ const READINGS=[
 <h4>1. Fight for the centre</h4>
 <p>The four middle squares (d4, e4, d5, e5) are the most important on the board. A piece in the centre reaches more squares than one on the edge. Start with a centre pawn: <b>e4</b> or <b>d4</b> (or <b>e5</b>/<b>d5</b> as Black).</p>
 <h4>2. Develop your pieces</h4>
-<p>"Developing" means bringing your knights and bishops off the back row so they can join the game. Knights first is a good habit: <b>Nf3</b> and <b>Nc3</b>. Try to move each piece <b>once</b> before moving any piece twice.</p>
+<p>"Developing" means bringing your knights and viziers off the back row so they can join the game. Knights first is a good habit: <b>Nf3</b> and <b>Nc3</b>. Try to move each piece <b>once</b> before moving any piece twice.</p>
 <h4>3. Castle early</h4>
 <p>Castling tucks your king behind a wall of pawns and brings a rook toward the centre. Most masters castle within the first 10 moves.</p>
 <h4>Common beginner mistakes</h4>
@@ -2741,13 +2743,13 @@ const READINGS=[
 <h4>Step 3: The blunder check</h4>
 <p>Before you let go of the piece, ask: <i>after this move, can my opponent take anything for free, or give a dangerous check?</i> This one question will win you more games than anything else.</p>
 <h4>No forcing moves? Improve your worst piece</h4>
-<p>Find the piece doing the least, like a bishop stuck behind its own pawns or a rook still in the corner, and give it a better square.</p>`},
+<p>Find the piece doing the least, like a vizier stuck behind its own pawns or a rook still in the corner, and give it a better square.</p>`},
   {id:'values',title:'What the pieces are worth',mins:2,body:`
 <p>To decide whether a trade is good, players use rough point values:</p>
-<ul><li>Pawn = <b>1</b></li><li>Knight = <b>3</b></li><li>Bishop = <b>3</b> (often a little more than a knight)</li><li>Rook = <b>5</b></li><li>Queen = <b>9</b></li><li>King = priceless: lose it and the game is over</li></ul>
+<ul><li>Pawn = <b>1</b></li><li>Knight = <b>3</b></li><li>Vizier = <b>3</b> (often a little more than a knight)</li><li>Rook = <b>5</b></li><li>Queen = <b>9</b></li><li>King = priceless: lose it and the game is over</li></ul>
 <p>This is what the <b>+</b> numbers next to the players' names show: how many points ahead someone is in captured pieces.</p>
 <h4>Using the values</h4>
-<ul><li>Giving a knight (3) for a rook (5) wins "the exchange": +2.</li><li>Two bishops together are strong. Keep them if you can.</li><li>When you're ahead, trade pieces (not pawns): the fewer pieces left, the more your extra material counts.</li><li>When you're behind, avoid trades and look for tricks.</li></ul>
+<ul><li>Giving a knight (3) for a rook (5) wins "the exchange": +2.</li><li>Two viziers together are strong. Keep them if you can.</li><li>When you're ahead, trade pieces (not pawns): the fewer pieces left, the more your extra material counts.</li><li>When you're behind, avoid trades and look for tricks.</li></ul>
 <p class="tip">But points aren't everything. In the <b>Famous games</b> section, the winners often give up lots of points to get at the enemy king.</p>`},
   {id:'tactics',title:'Four tactics every player should know',mins:4,body:`
 <p>A tactic is a short sequence that wins material or gives checkmate. Almost every tactic is one of these patterns.</p>
@@ -2756,7 +2758,7 @@ const READINGS=[
 <h4>The pin</h4>
 <p>A piece can't move because something more valuable is behind it. If the piece behind is the king, it's an <b>absolute pin</b>: the piece is not allowed to move at all. Pile up attackers on a pinned piece.</p>
 <h4>The skewer</h4>
-<p>The opposite of a pin: the valuable piece is in front. When it moves out of the way, you take what's behind it. Often done with a rook or bishop checking the king, then capturing the queen behind it.</p>
+<p>The opposite of a pin: the valuable piece is in front. When it moves out of the way, you take what's behind it. Often done with a rook or vizier checking the king, then capturing the queen behind it.</p>
 <h4>The discovered attack</h4>
 <p>You move one piece out of the way and reveal an attack by another piece behind it. If the revealed attack is a check, the piece you moved can go almost anywhere, even grab the queen. When <b>both</b> pieces give check, it's a <b>double check</b>, and the king must move.</p>
 <p class="tip">Practise: the <b>Puzzles</b> tab is full of these. In <b>Famous games</b>, Réti's Quick Mate ends with a double check.</p>`},
@@ -2764,11 +2766,11 @@ const READINGS=[
 <h4>Back-rank mate</h4>
 <p>A king hiding behind its own three pawns has no escape square. A rook or queen landing on the back row is mate. Avoid it by making a little "window" for your king (for example h3 or h6) once the game settles down.</p>
 <h4>Scholar's mate (and how to stop it)</h4>
-<p>1.e4 e5 2.Bc4 Nc6 3.Qh5 Nf6?? 4.Qxf7#. The queen and bishop both hit f7, a weak square next to the king that only the king defends. If you're Black, play <b>...g6</b> or <b>...Qe7</b> when the queen comes to h5, then develop with tempo by attacking the queen.</p>
+<p>1.e4 e5 2.Bc4 Nc6 3.Qh5 Nf6?? 4.Qxf7#. The queen and vizier both hit f7, a weak square next to the king that only the king defends. If you're Black, play <b>...g6</b> or <b>...Qe7</b> when the queen comes to h5, then develop with tempo by attacking the queen.</p>
 <h4>Smothered mate</h4>
 <p>A knight gives check to a king that is boxed in by its own pieces. No one can capture the knight or block, because knights jump.</p>
 <h4>Two pieces working together</h4>
-<p>Most mates need teamwork: a queen protected by another piece next to the king, two rooks on neighbouring rows (the "ladder"), or a bishop and knight covering escape squares like in Légal's Trap.</p>`},
+<p>Most mates need teamwork: a queen protected by another piece next to the king, two rooks on neighbouring rows (the "ladder"), or a vizier and knight covering escape squares like in Légal's Trap.</p>`},
   {id:'endgame',title:'Endgame basics',mins:3,body:`
 <p>When most pieces are gone, the game changes character.</p>
 <h4>The king becomes a fighter</h4>
@@ -3532,7 +3534,7 @@ function copyPgn(){
 // After a game, the engine looks at every position. For each move we compare how good the position was before
 // and after it (as a winning chance, 0-100%), name the move (Best ... Blunder) and explain it in plain words.
 const RV_NAME={book:'Book',best:'Best',excellent:'Excellent',good:'Good',inacc:'Small slip',mistake:'Mistake',blunder:'Blunder'};
-const PIECE_WORD={p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen',k:'king'};
+const PIECE_WORD={p:'pawn',n:'knight',b:'vizier',r:'rook',q:'queen',k:'king'};
 const RV_MATE=100000;
 const rvKey=s=>s.game.start+'|'+s.game.moves.join(' ');
 function rvDone(s){ const R=s&&s.review; return R&&!R.running&&R.key===rvKey(s)?R:null; }
