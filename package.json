@@ -1,0 +1,17 @@
+{
+  "name": "timber-chess",
+  "private": true,
+  "description": "Timber Chess: an offline-first chess app (PWA). The app itself needs no build step; these scripts are for testing and data.",
+  "scripts": {
+    "test": "node tests/run.js",
+    "test:family": "node tests/run.js --family",
+    "test:live": "node tests/run.js --live --family",
+    "build:puzzles": "node tools/build-puzzles.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.49.1"
+  },
+  "engines": {
+    "node": ">=22.15"
+  }
+}
