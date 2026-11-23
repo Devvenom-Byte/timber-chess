@@ -256,6 +256,16 @@ details.how summary{cursor:pointer;font-weight:600;margin-top:8px;font-size:14px
 .cotarget{font-family:Fraunces,Georgia,serif;font-size:44px;font-weight:700;text-align:center;letter-spacing:1px;margin:2px 0}
 .cobar{height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin:6px 0}.cobar i{display:block;height:100%;background:var(--accent)}
 .coans{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}.coans button{padding:12px 0;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:700 18px Inter,system-ui,sans-serif}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center}
+.stat b{display:block;font-family:Fraunces,Georgia,serif;font-size:22px;line-height:1.1}.stat span{font-size:11.5px;color:var(--muted)}
+.badges{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.badge{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 6px;text-align:center}
+.badge i{display:block;font-style:normal;font-size:26px;line-height:1.2}.badge b{display:block;font-size:12.5px;margin-top:2px}.badge span{display:block;font-size:11px;color:var(--muted);line-height:1.3;margin-top:2px}
+.badge.locked i{filter:grayscale(1);opacity:.35}.badge.locked b{color:var(--muted)}
+.badge .bprog{display:block;height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;margin:6px 6px 2px}.badge .bprog i{display:block;height:100%;background:var(--accent)}
+.morebadges{margin-top:12px}.morebadges summary{cursor:pointer;color:var(--accent2);font-weight:600;font-size:14px;padding:4px 0}.morebadges .badges{margin-top:8px}
+.badge.got{border-color:rgba(232,193,90,.55);background:rgba(232,193,90,.08)}
 .segrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .seg{display:flex;background:var(--panel);border-radius:10px;padding:3px;gap:2px}
 .seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;padding:7px 10px;border-radius:8px}
@@ -284,7 +294,7 @@ details.how summary{cursor:pointer;font-weight:600;margin-top:8px;font-size:14px
 <div id="app">
   <header class="top">
     <div class="brand"><img id="brandImg" alt="">Timber Chess</div>
-    <div class="hbtns"><button class="iconbtn" id="btnSearch" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button><button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
+    <div class="hbtns"><button class="iconbtn" id="btnProgress" aria-label="Your progress"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/></svg></button><button class="iconbtn" id="btnSearch" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button><button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
   </header>
   <main>
     <section class="table">
@@ -1232,9 +1242,11 @@ const PUZZLES=[
 const $=s=>document.querySelector(s);
 const START='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+// progress that can earn a badge (checked after it is saved)
+const BADGE_KEYS=new Set(['learnDone','gameLog','pzProg','puzSolved','pzStreak','egStars','opDone','fgDone','readDone','reviews','coBest','days']);
 const store={
   get(k,d){ try{ const v=localStorage.getItem('timber.'+k); return v==null?d:JSON.parse(v);}catch(e){return d;} },
-  set(k,v){ try{ localStorage.setItem('timber.'+k,JSON.stringify(v)); }catch(e){} }
+  set(k,v){ try{ localStorage.setItem('timber.'+k,JSON.stringify(v)); }catch(e){} if(BADGE_KEYS.has(k)) try{ checkBadges(); }catch(e){} }
 };
 const settings=Object.assign({board3d:false,view3d:'tilt',sounds:'auto',sound:true,haptics:true,dots:true,last:true,coords:true,autoQueen:false,theme:'walnut',pieces:'wood'},store.get('settings',{}));
 function saveSettings(){ store.set('settings',settings); }
@@ -1955,7 +1967,7 @@ async function attemptMove(from,to,dropped){
       renderPanel(); renderHL(); return;
     }
   }
-  commitMove(u,{dropped});
+  markActive(); commitMove(u,{dropped});
 }
 
 function commitMove(u,{dropped=false,silent=false,session=null}={}){
@@ -2578,7 +2590,7 @@ function coStart(){ const s=sessions.learn, c=s.co; if(!c) return; Object.assign
   clearInterval(coTimer); coTimer=setInterval(()=>{ const left=c.end-performance.now(); const bar=document.querySelector('.cobar i'); if(bar) bar.style.width=Math.max(0,left/CO_ROUND*100)+'%'; if(sessions.learn.co!==c||S.tab!=='learn') coStop(c,true); else if(left<=0) coStop(c); },100); }
 function coStop(c,cut){ clearInterval(coTimer); if(!c.running) return; c.running=false; if(cut){ c.last=null; return; } const k=c.mode+'_'+c.side, rec=c.score>(coBest[k]||0);
   if(rec){ coBest[k]=c.score; store.set('coBest',coBest); } c.last={score:c.score,miss:c.miss,rec}; if(rec&&c.score) SFX.win(); renderLabels(); if(sessions.learn.co===c) renderAll(); }
-function coAnswer(sq){ const s=sessions.learn, c=s.co; if(!c||!c.running) return;
+function coAnswer(sq){ const s=sessions.learn, c=s.co; if(!c||!c.running) return; markActive();
   if(sq===c.target){ c.score++; flash(sq,'right'); SFX.good(); coNext(c); }
   else { c.miss++; flash(sq,'wrong'); if(c.mode==='find') flash(c.target,'right'); SFX.bad(); buzz(30); }
   renderAll(); }
@@ -2640,6 +2652,67 @@ function openCourse(){
   const html=COURSE.map(l=>`<h4>${esc(l.level)}</h4><div class="list">${l.items.map(x=>{ const i=n++, d=x.done(), now=nx&&nx.i===i; return `<button class="item step" data-step="${i}"><span class="stepdot ${d?'done':now?'now':''}">${d?'✓':i+1}</span><div class="t"><b>${esc(x.t)}</b><span>${esc(x.d)}</span></div>${now?'<span class="tag">Next</span>':''}</button>`; }).join('')}</div>`).join('');
   openSheet(`<h2>Your chess path</h2><p class="note">${nx?`Step ${nx.i+1} of ${nx.total}. Follow the steps in order, or jump to any of them.`:'You have finished the whole path. Brilliant! Keep playing, solving and reviewing.'}</p><div class="path">${html}</div>`,'course');
   $('#sheet').onclick=e=>{ const b=e.target.closest('[data-step]'); if(b) courseGo(courseSteps()[+b.dataset.step]); };
+}
+
+/* ================= progress and badges ================= */
+// Everything here is worked out from progress the app already keeps on this device; nothing is sent
+// anywhere. Badges are checked whenever tracked progress is saved (see store.set) and announced once.
+const dayKey=d=>{ const x=d||new Date(); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); };
+const activeDays=(a=>Array.isArray(a)?a.filter(d=>/^\d{4}-\d\d-\d\d$/.test(d)).slice(-400):[])(store.get('days',[]));
+function markActive(){ const k=dayKey(); if(!activeDays.includes(k)){ activeDays.push(k); if(activeDays.length>400) activeDays.shift(); store.set('days',activeDays); } }
+function dayStreak(){ // days in a row up to today (or yesterday, so the streak is not lost before you play today)
+  const set=new Set(activeDays); let d=new Date(); if(!set.has(dayKey(d))) d.setDate(d.getDate()-1); let n=0; while(set.has(dayKey(d))){ n++; d.setDate(d.getDate()-1); } return n; }
+function stats(){
+  const solved=Object.keys(pzProg), first=solved.filter(id=>pzProg[id]===1).length, won=gameLog.filter(g=>g.res==='win');
+  return { games:gameLog.length, wins:won.length, draws:gameLog.filter(g=>g.res==='draw').length, losses:gameLog.filter(g=>g.res==='loss').length,
+    best:won.length?Math.min(LEVELS.length-1,Math.max(...won.map(g=>g.lvl))):-1, days:activeDays.length, puzzles:solved.length+Object.keys(puzSolved).length, firstTry:first, pzBest:pzStreak.best,
+    lessons:LESSONS.filter(l=>learnDone[l.id]).length, egStarsSum:ENDGAMES.reduce((a,e)=>a+(egStars[e.id]||0),0), egDone:ENDGAMES.filter(e=>egStars[e.id]).length,
+    openings:Object.keys(opDone).length, coords:Math.max(0,...Object.values(coBest)), famous:FAMOUS.filter(g=>fgDone[g.id]).length,
+    reads:READINGS.filter(r=>readDone[r.id]).length, reviews:+store.get('reviews',0)||0, streak:dayStreak(), pathDone:courseSteps().filter(x=>x.done()).length, pathTotal:courseSteps().length }; }
+const BADGES=[ // p: progress shown on a locked badge, as [have, need]
+  {id:'lesson1',i:'🎓',t:'First lesson',d:'Finish a lesson',ok:x=>x.lessons>=1},
+  {id:'pz1',i:'⭐',t:'First puzzle',d:'Solve your first puzzle',ok:x=>x.puzzles>=1},
+  {id:'game1',i:'♟️',t:'First game',d:'Finish a game against the computer',ok:x=>x.games>=1},
+  {id:'open1',i:'📗',t:'First opening',d:'Play an opening to the end',ok:x=>x.openings>=1},
+  {id:'win1',i:'🏆',t:'First win',d:'Win a game against any computer',ok:x=>x.wins>=1},
+  {id:'pz5',i:'🧩',t:'Puzzle starter',d:'Solve 5 puzzles',ok:x=>x.puzzles>=5,p:x=>[x.puzzles,5]},
+  {id:'eye',i:'🎯',t:'Sharp eye',d:'Get 10 squares right in the coordinates game',ok:x=>x.coords>=10,p:x=>[x.coords,10]},
+  {id:'lessons',i:'📚',t:'Rule master',d:'Finish all the lessons',ok:x=>x.lessons>=LESSONS.length,p:x=>[x.lessons,LESSONS.length]},
+  {id:'qmate',i:'👑',t:'Queen mate',d:'Finish the queen checkmate drill',ok:()=>!!egStars.queen},
+  {id:'week',i:'📅',t:'Regular',d:'Play on 7 different days',ok:x=>x.days>=7,p:x=>[x.days,7]},
+  {id:'hot',i:'🔥',t:'Hot streak',d:'Solve 5 puzzles in a row without a hint',ok:x=>x.pzBest>=5,p:x=>[x.pzBest,5]},
+  {id:'rmate',i:'🏰',t:'Rook mate',d:'Finish the rook checkmate drill',ok:()=>!!egStars.rook},
+  {id:'review5',i:'🔍',t:'Detective',d:'Look back at 5 of your games with Review',ok:x=>x.reviews>=5,p:x=>[x.reviews,5]},
+  {id:'pz50',i:'🧠',t:'Puzzle fan',d:'Solve 50 puzzles',ok:x=>x.puzzles>=50,p:x=>[x.puzzles,50]},
+  {id:'open5',i:'📖',t:'Opening explorer',d:'Practise 5 openings',ok:x=>x.openings>=5,p:x=>[x.openings,5]},
+  {id:'hist',i:'🏛️',t:'Historian',d:'Replay 3 famous games',ok:x=>x.famous>=3,p:x=>[x.famous,3]},
+  {id:'reader',i:'📜',t:'Bookworm',d:'Read every article',ok:x=>x.reads>=READINGS.length,p:x=>[x.reads,READINGS.length]},
+  {id:'giant',i:'🪓',t:'Giant slayer',d:`Beat ${LEVELS[3].name} or a stronger computer`,ok:x=>x.best>=3},
+  {id:'endall',i:'🏁',t:'Endgame expert',d:'Finish every endgame drill',ok:x=>x.egDone>=ENDGAMES.length,p:x=>[x.egDone,ENDGAMES.length]},
+  {id:'pz200',i:'🦉',t:'Puzzle master',d:'Solve 200 puzzles',ok:x=>x.puzzles>=200,p:x=>[x.puzzles,200]},
+  {id:'iron',i:'🌲',t:'Ironwood',d:`Beat ${LEVELS[LEVELS.length-1].name}, the strongest computer`,ok:x=>x.best>=LEVELS.length-1},
+  {id:'path',i:'🧭',t:'Path complete',d:'Finish every step of your chess path',ok:x=>x.pathDone>=x.pathTotal,p:x=>[x.pathDone,x.pathTotal]}];
+const badgesGot=(p=>{ const o={}; if(p&&typeof p==='object') for(const b of BADGES) if(typeof p[b.id]==='number') o[b.id]=p[b.id]; return o; })(store.get('badges',{}));
+let badgeTimer=0;
+function checkBadges(){ clearTimeout(badgeTimer); badgeTimer=setTimeout(()=>{ let x; try{ x=stats(); }catch(e){ return; } const fresh=BADGES.filter(b=>!badgesGot[b.id]&&b.ok(x));
+  if(!fresh.length) return; for(const b of fresh) badgesGot[b.id]=Date.now(); store.set('badges',badgesGot);
+  toast(fresh.length===1?`🏅 New badge: ${fresh[0].i} ${fresh[0].t}`:`🏅 ${fresh.length} new badges! See them in Progress (🏆).`,3500); },600); }
+function badgeHTML(b,x,got){ let pr=''; if(!got&&b.p){ const [h,n]=b.p(x); pr=`<em class="bprog"><i style="width:${Math.min(100,Math.round(h/n*100))}%"></i></em><span>${Math.min(h,n)} / ${n}</span>`; }
+  return `<div class="badge ${got?'got':'locked'}"><i>${b.i}</i><b>${esc(b.t)}</b><span>${esc(b.d)}</span>${pr}</div>`; }
+function badgesHTML(x,got){
+  const have=BADGES.filter(b=>badgesGot[b.id]), todo=BADGES.filter(b=>!badgesGot[b.id]), next=todo.slice(0,3), rest=todo.slice(3);
+  return (have.length?`<h4>Your badges · ${got} of ${BADGES.length}</h4><div class="badges">${have.map(b=>badgeHTML(b,x,true)).join('')}</div>`:`<h4>Badges</h4><p class="note">Earn badges as you learn and play. Here are the first ones to aim for:</p>`)
+    +(next.length?`<h4>Next up</h4><div class="badges">${next.map(b=>badgeHTML(b,x,false)).join('')}</div>`:'')
+    +(rest.length?`<details class="morebadges"><summary>More to discover (${rest.length})</summary><div class="badges">${rest.map(b=>badgeHTML(b,x,false)).join('')}</div></details>`:'')
+    +(todo.length?'':'<p class="note">You have every badge. Amazing!</p>'); }
+function openProgress(){
+  const x=stats(), got=BADGES.filter(b=>badgesGot[b.id]).length, tile=(v,l)=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`;
+  openSheet(`<h2>Your progress</h2><p class="note">${x.streak?`🔥 <b>${x.streak} day${x.streak>1?'s':''} in a row.</b> `:''}Saved on this device only.</p>
+    <h4>Games against the computer</h4><div class="stats">${tile(x.games,'played')}${tile(x.wins,'won')}${tile(x.best>=0?esc(LEVELS[x.best].name):'—','best win')}</div>
+    <h4>Training</h4><div class="stats">${tile(x.puzzles,'puzzles solved')}${tile(x.firstTry,'first try')}${tile(x.pzBest,'best streak')}${tile(`${x.lessons}/${LESSONS.length}`,'lessons')}${tile(`${x.egStarsSum}★`,'endgame stars')}${tile(x.coords,'coordinates best')}${tile(x.openings,'openings practised')}${tile(x.famous,'famous games')}${tile(`${x.pathDone}/${x.pathTotal}`,'path steps')}</div>
+    ${badgesHTML(x,got)}
+    <div class="row"><button class="btn" id="pgPath">🧭 Your chess path</button></div>`,'progress');
+  $('#pgPath').onclick=()=>{ closeSheet(); setTimeout(openCourse,250); };
 }
 
 // Readings: short articles. Written in plain language; body is trusted static HTML.
@@ -2726,14 +2799,14 @@ function openReadings(){
   $('#sheet').onclick=e=>{ const b=e.target.closest('[data-rd]'); if(b) openReading(+b.dataset.rd); };
 }
 function openReading(i){
-  const r=READINGS[i]; readDone[r.id]=1; store.set('readDone',readDone);
+  const r=READINGS[i]; readDone[r.id]=1; store.set('readDone',readDone); markActive();
   const next=READINGS[i+1];
   openSheet(`<div class="article"><p class="note">${r.mins} min read</p><h2>${esc(r.title)}</h2>${r.body}</div><div class="controls" style="margin-top:16px"><button class="btn" id="rdBack">${ICON.list}All readings</button>${next?`<button class="btn primary" id="rdNext">Next: ${esc(next.title)}</button>`:''}</div>`,'reading');
   $('#sheet').scrollTop=0;
   $('#sheet').onclick=e=>{ if(e.target.closest('#rdBack')) openReadings(); else if(e.target.closest('#rdNext')) openReading(i+1); };
 }
 // Read-only handle for automated tests.
-Object.defineProperty(window,'__tc',{value:{startCoords,coAnswer,courseNext,COURSE,get coBest(){ return coBest; },get gameLog(){ return gameLog; },timeoutResult,clockFmt,ENDGAMES,startEndgame,get egStars(){ return egStars; },get pzStreak(){ return pzStreak; },startThemePuzzle,PZ_THEMES,get pzProg(){ return pzProg; },startReview,rvDone,get B3(){ return B3; },get S(){ return S; },enable3D,off3D,settings,OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
+Object.defineProperty(window,'__tc',{value:{stats,BADGES,get badgesGot(){ return badgesGot; },openProgress,checkBadges,startCoords,coAnswer,courseNext,COURSE,get coBest(){ return coBest; },get gameLog(){ return gameLog; },timeoutResult,clockFmt,ENDGAMES,startEndgame,get egStars(){ return egStars; },get pzStreak(){ return pzStreak; },startThemePuzzle,PZ_THEMES,get pzProg(){ return pzProg; },startReview,rvDone,get B3(){ return B3; },get S(){ return S; },enable3D,off3D,settings,OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
 
 /* ================= family (online) ================= */
 /* Family games over Firebase Realtime Database.
@@ -3364,6 +3437,7 @@ function searchIndex(){
   LESSONS.forEach(l=>out.push({kind:'Lesson',icon:'🎓',title:l.title,sub:l.about,score:q=>scoreText([[l.title,5],[l.about,1.5],['lesson beginner learn how to move',.5]],q),open:()=>{ closeSheet(); startLesson(l); }}));
   FAMOUS.forEach(g=>out.push({kind:'Famous game',icon:'🏆',title:g.title,sub:`${g.white} vs ${g.black} · ${g.where}`,score:q=>scoreText([[g.title,5],[g.white+' '+g.black,4],[g.where,2],[g.about,1],['famous game master',.5]],q),open:()=>{ closeSheet(); startFamous(g); }}));
   READINGS.forEach((r,i)=>out.push({kind:'Reading',icon:'📄',title:r.title,sub:`${r.mins} min read`,score:q=>scoreText([[r.title,5],[r.body.replace(/<[^>]+>/g,' '),1],['reading article',.5]],q),open:()=>openReading(i)}));
+  out.push({kind:'App',icon:'🏆',title:'Your progress',sub:'Games, puzzles, streaks and badges',score:q=>scoreText([['progress stats statistics badges achievements streak trophies',3]],q),open:()=>{ closeSheet(); setTimeout(openProgress,250); }});
   out.push({kind:'Learn',icon:'🧭',title:'Your chess path',sub:'Every step from beginner to expert, with your progress',score:q=>scoreText([['chess path course journey steps progress beginner',3]],q),open:()=>{ closeSheet(); setTimeout(openCourse,250); }});
   out.push({kind:'Learn',icon:'🎯',title:'Board coordinates',sub:'Learn the square names with a 30-second game',score:q=>scoreText([['board coordinates squares names letters numbers notation',3]],q),open:()=>{ closeSheet(); startCoords(); }});
   ENDGAMES.forEach(e=>out.push({kind:'Endgame',icon:'♔',title:e.title,sub:`${e.level} · ${e.about}`,score:q=>scoreText([[e.title,5],[e.about,1.5],['endgame ending trainer '+e.level,.7],[e.how.join(' '),.4]],q),open:()=>{ closeSheet(); startEndgame(e); }}));
@@ -3673,6 +3747,7 @@ function renderLobby(){
 }
 
 $('#btnSettings').addEventListener('click',()=>{ ac(); openSettings(); });
+$('#btnProgress').addEventListener('click',()=>{ ac(); openProgress(); });
 $('#btnSearch').addEventListener('click',()=>{ ac(); openSearch(); });
 
 /* ================= boot ================= */
@@ -3689,6 +3764,7 @@ else if(ps.eng.status()!=='ongoing'){ ps.over=resultText(ps.eng.status(),ps.eng.
 if(ps.clock&&ps.clock.flag&&!ps.over){ ps.over=timeoutResult(ps.eng,ps.clock.flag); renderAll(); } // it ran out before the app was closed
 clockStart(ps); // a saved clock carries on (time while the app was closed is not counted)
 Fam.init();
+setTimeout(()=>{ try{ checkBadges(); }catch(e){} },2500); // progress made before badges existed earns them too
 if(settings.board3d) setTimeout(()=>enable3D(),0);
 if('serviceWorker' in navigator&&location.protocol==='https:'){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }
 })();

@@ -15,7 +15,9 @@ self-contained: no CDNs, no trackers, no ads.
 ## How the app is built
 - `index.html`: almost the whole app (HTML, CSS, JS in one IIFE). Main areas, searchable by their
   `/* ===== name ===== */` banners: engine, sessions, rendering, drag & tap, optional 3D board,
-  game review, puzzles, themed puzzles, lessons, openings encyclopedia, family games (Firebase), sheets.
+  game review, puzzles, themed puzzles, lessons, endgame tablebase, coordinates trainer, the course
+  (a guided path), progress and badges, openings encyclopedia, family games (Firebase), sheets.
+- Progress lives only in `localStorage` (keys prefixed `timber.`). Validate anything read back from it.
 - `board3d.js` + `vendor/three.module.min.js`: the optional 3D board, loaded only when switched on.
 - `puzzles/v1/*.json`: themed puzzle data from the Lichess puzzle database (CC0), built by
   `npm run build:puzzles` (see the header of `tools/build-puzzles.mjs`). Never rebuild into an
