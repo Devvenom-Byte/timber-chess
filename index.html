@@ -241,6 +241,12 @@ nav.tabs button.on{color:var(--accent2);background:rgba(227,165,90,.1)}
 .stars{color:#e8c15a;letter-spacing:1px}.stars i{font-style:normal;color:rgba(255,255,255,.18)}
 .lvtag{font-size:11px;font-weight:700;padding:1px 7px;border-radius:8px;margin-left:6px;vertical-align:2px;background:rgba(255,255,255,.08);color:var(--muted)}
 details.how summary{cursor:pointer;font-weight:600;margin-top:8px;font-size:14px}
+.strip .clock{margin-left:8px;flex:none;font:600 15px/1 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;padding:6px 9px;border-radius:8px;background:rgba(255,255,255,.06);color:var(--muted);min-width:60px;text-align:center}
+.strip .clock.on{background:#efe2cc;color:#1d140e}
+.strip .clock.low{background:#c8452f;color:#fff}
+.strip .clock.paused{opacity:.6}
+.tcs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.tcs button{padding:9px 4px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tcs button b{font-size:15px}.tcs button span{font-size:11.5px;color:var(--muted)}.tcs button.on{border-color:var(--accent);background:rgba(227,165,90,.16)}
 .segrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .seg{display:flex;background:var(--panel);border-radius:10px;padding:3px;gap:2px}
 .seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;padding:7px 10px;border-radius:8px}
@@ -1519,6 +1525,55 @@ function askEngine(start,moves,opts){
   return new Promise(resolve=>{ const id=++wid; pending.set(id,{resolve,job}); worker.postMessage({id,...job}); });
 }
 
+/* ================= chess clocks ================= */
+// Optional clocks for games in the Play tab. Times are in milliseconds; the running side's time is
+// worked out from a monotonic timestamp (performance.now), so the display can never drift.
+// Rules (as on Lichess/Chess.com): each side's first move is free; after that the mover's clock runs and
+// every move earns the increment. Undo takes moves back but never gives time back. Clocks only run while
+// the Play tab is open and the app is visible; in 2-player games a tap on a clock pauses both.
+const TIME_CONTROLS=[{k:'off',name:'No clock',sub:'Best for learning'},{k:'3+2',name:'3 min',sub:'+ 2 s a move'},{k:'5+0',name:'5 min',sub:'Blitz'},{k:'10+0',name:'10 min',sub:'Rapid'},{k:'15+10',name:'15 min',sub:'+ 10 s a move'},{k:'30+0',name:'30 min',sub:'Classical'}];
+function clockNew(k){ if(k==='off'||!TIME_CONTROLS.some(t=>t.k===k)) return null; const [m,i]=k.split('+').map(Number), base=m*60000; return {k,base,inc:i*1000,w:base,b:base,run:null,t0:0,paused:false,flag:null,warned:{}}; }
+const clockLeft=(c,side)=>Math.max(0,c[side]-(c.run===side?performance.now()-c.t0:0));
+function clockStart(s){ const c=s.clock; if(!c||s.over||c.flag||c.run||c.paused||S.tab!=='play'||document.visibilityState==='hidden') return; if(s.game.moves.length>=2){ c.run=s.eng.turn()?'b':'w'; c.t0=performance.now(); } }
+function clockStop(c){ if(!c||!c.run) return; c[c.run]=clockLeft(c,c.run); c.run=null; c.t0=0; }
+function clockMoved(s){ // a move was just made in Play
+  const c=s.clock; if(!c) return; const mover=s.eng.turn()?'w':'b';
+  if(c.run===mover) c[mover]=clockLeft(c,mover);
+  c.run=null; c.t0=0; c.paused=false;
+  if(s.game.moves.length>2&&c[mover]>0) c[mover]+=c.inc; // first moves are free, then every move earns the increment
+  clockStart(s);
+}
+function clockUndo(s){ const c=s.clock; if(!c) return; clockStop(c); c.flag=null; clockStart(s); } // no time back
+const clockLow=c=>Math.max(20000,c.base*0.1); // red from 20 s, or 10% of the starting time in long games
+function clockFmt(ms){ if(ms<20000) return (Math.floor(ms/100)/10).toFixed(1); const t=Math.ceil(ms/1000), m=Math.floor(t/60); return m+':'+String(t%60).padStart(2,'0'); }
+// Out of time: the opponent wins, unless they could never checkmate (FIDE rule, simplified): they have only
+// their king, or a single bishop or knight while the player who ran out has only a king.
+function timeoutResult(eng,flagged){
+  const win=flagged==='w'?'b':'w', name=win==='w'?'White':'Black', side=c=>eng.board().filter(p=>p&&colorOf(p)===c&&p.toLowerCase()!=='k').map(p=>p.toLowerCase()), pcs=side(win);
+  if(!pcs.length||(pcs.length===1&&(pcs[0]==='n'||pcs[0]==='b')&&!side(flagged).length)) return {title:'Time\'s up',sub:`Draw: ${name} cannot checkmate with what is left`,win:null};
+  return {title:'Time\'s up',sub:`${name} wins on time`,win};
+}
+function clockTick(){
+  const s=sessions.play, c=s&&s.clock; if(!c||!c.run||s.over) return;
+  const side=c.run;
+  const left=clockLeft(c,side);
+  if(left<=0){ clockStop(c); c.flag=side; S.token++; S.thinking=false; deselect(); s.over=timeoutResult(s.eng,side); savePlay(); SFX.bad(); renderAll(); setTimeout(()=>showGameOver(s),400); return; }
+  if(left<10000&&!c.warned[side]){ c.warned[side]=1; SFX.illegal(); buzz(40); } // one warning at 10 seconds
+  if(S.tab==='play') clockPaint();
+}
+function clockPaint(){
+  const c=sessions.play.clock; if(!c) return;
+  for(const el of document.querySelectorAll('.strip .clock[data-clock]')){ const side=el.dataset.clock, left=clockLeft(c,side);
+    const t=clockFmt(left); if(el.textContent!==t) el.textContent=t;
+    el.classList.toggle('on',c.run===side); el.classList.toggle('low',left<clockLow(c)&&(c.run===side||left===0)); el.classList.toggle('paused',c.paused); }
+}
+setInterval(clockTick,100);
+function clockTogglePause(){ const s=sessions.play, c=s.clock; if(!c||s.over||s.kind!=='local') return;
+  if(c.paused){ c.paused=false; clockStart(s); toast('Clocks running'); } else if(c.run){ clockStop(c); c.paused=true; toast('Clocks paused. Tap a clock to carry on.'); } clockPaint(); }
+for(const id of ['#stripTop','#stripBottom']) document.querySelector(id).addEventListener('click',e=>{ if(e.target.closest('.clock')) clockTogglePause(); });
+document.addEventListener('visibilitychange',()=>{ const s=sessions.play; if(!s||!s.clock) return;
+  if(document.visibilityState==='hidden'){ clockStop(s.clock); savePlay(); } else { clockStart(s); clockPaint(); } });
+
 /* ================= sessions ================= */
 const LEVELS=[
   {name:'Twig',desc:'Brand new to chess',opts:{multi:{depth:1,temp:170,blunder:.3}}},
@@ -1539,6 +1594,9 @@ const sessions={};
   sessions.play=Object.assign(mkSession(pg),{kind,level,human});
   sessions.play.orientation=kind==='cpu'?human:'w';
   if(saved&&saved.orientation) sessions.play.orientation=saved.orientation;
+  if(saved&&saved.clock&&typeof saved.clock==='object'){ const c=clockNew(saved.clock.k), num=v=>Number.isFinite(v)&&v>=0&&v<1e8;
+    if(c){ if(num(saved.clock.w)) c.w=saved.clock.w; if(num(saved.clock.b)) c.b=saved.clock.b;
+      if(saved.clock.flag==='w'||saved.clock.flag==='b') c.flag=saved.clock.flag; c.paused=saved.clock.paused===true; sessions.play.clock=c; } }
   sessions.play.game.sans=rebuildSans(sessions.play.game);
   sessions.openings=Object.assign(mkSession(newGame()),{op:null,mistakes:0,done:false,msg:'',msgType:''});
   sessions.puzzles=Object.assign(mkSession(newGame()),{idx:-1,left:0,solved:false,msg:'',msgType:'',checking:false});
@@ -1549,7 +1607,7 @@ function rebuildSans(game){ const e=EngineFactory(); e.setFen(game.start); const
   for(const u of game.moves){ const m=e.fromUci(u); if(!m) break; sans.push(e.san(m)); ok.push(u); e.make(m); }
   game.moves=ok; return sans; }
 const cur=()=>sessions[S.tab];
-function savePlay(){ const s=sessions.play; store.set('play',{game:{start:s.game.start,moves:s.game.moves},kind:s.kind,level:s.level,human:s.human,orientation:s.orientation}); }
+function savePlay(){ const s=sessions.play, c=s.clock; store.set('play',{game:{start:s.game.start,moves:s.game.moves},kind:s.kind,level:s.level,human:s.human,orientation:s.orientation,clock:c?{k:c.k,w:clockLeft(c,'w'),b:clockLeft(c,'b'),flag:c.flag,paused:c.paused}:null}); }
 
 function humanCanMove(color){
   const s=cur(); if(s.over||s.view!==null) return false;
@@ -1859,6 +1917,7 @@ function choosePromotion(to,color){
 
 async function attemptMove(from,to,dropped){
   const s=cur(); const opts=S.targets.get(to); if(!opts) return;
+  if(s===sessions.play&&s.clock&&s.clock.run&&clockLeft(s.clock,s.clock.run)<=0){ clockTick(); return; }
   let u=opts[0];
   if(opts.length>1){
     const color=s.eng.turn()?'b':'w';
@@ -1883,7 +1942,7 @@ async function attemptMove(from,to,dropped){
 }
 
 function commitMove(u,{dropped=false,silent=false,session=null}={}){
-  const s=session||cur();
+  const s=session||cur(); if(s===sessions.play&&s.over) return false;
   const m=s.eng.fromUci(u); if(!m) return false;
   const san=s.eng.san(m);
   const flagCastle=san.startsWith('O-O'), cap=san.includes('x');
@@ -1917,10 +1976,11 @@ function resultText(st,loserColor){
   return null;
 }
 function afterMove(s){
+  if(s===sessions.play) clockMoved(s);
   if(s===sessions.play) savePlay();
   if(s===sessions.play){
     const st=statusOf(s);
-    if(st!=='ongoing'){ s.over=resultText(st,s.eng.turn()?'b':'w'); renderAll(); setTimeout(()=>showGameOver(s),700); return; }
+    if(st!=='ongoing'){ clockStop(s.clock); s.over=resultText(st,s.eng.turn()?'b':'w'); renderAll(); setTimeout(()=>showGameOver(s),700); return; }
     renderAll();
     if(s.kind==='cpu'&&(s.eng.turn()?'b':'w')!==s.human) cpuMove();
     return;
@@ -1931,12 +1991,13 @@ function afterMove(s){
   if(s===sessions.family){ Fam.afterLocalMove(); return; }
 }
 async function cpuMove(){
-  const s=sessions.play; const tok=++S.token; S.cpuTok=tok; S.thinking=true; renderStrips(); renderPanel();
+  const s=sessions.play; if(s.over) return; const tok=++S.token; S.cpuTok=tok; S.thinking=true; renderStrips(); renderPanel();
   const t0=Date.now();
   let u=null;
   if(s.game.start===START&&s.game.moves.length<14&&s.level>=1&&Math.random()<(s.level>=3?0.92:0.6)) u=bookMove(s.game.moves);
-  if(!u){ const r=await askEngine(s.game.start,s.game.moves,LEVELS[s.level].opts); u=r&&r.move; }
-  const wait=Math.max(0,(s.level<3?650:450)+Math.random()*350-(Date.now()-t0));
+  if(!u){ const o=LEVELS[s.level].opts, me=s.human==='w'?'b':'w', opts=s.clock&&o.timeMs?{...o,timeMs:Math.max(120,Math.min(o.timeMs,clockLeft(s.clock,me)/30))}:o;
+    const r=await askEngine(s.game.start,s.game.moves,opts); u=r&&r.move; }
+  const wait=s.clock&&clockLeft(s.clock,s.human==='w'?'b':'w')<30000?0:Math.max(0,(s.level<3?650:450)+Math.random()*350-(Date.now()-t0));
   await new Promise(r=>setTimeout(r,wait));
   if(tok!==S.token) return;
   S.thinking=false;
@@ -1948,12 +2009,12 @@ function undo(){
   let n=1;
   if(s.kind==='cpu'){ const stm=s.eng.turn()?'b':'w'; n=stm===s.human?2:1; if(s.game.moves.length<n) n=s.game.moves.length; }
   s.game.moves.splice(-n); s.game.sans.splice(-n);
-  s.eng.loadUci(s.game.start,s.game.moves); s.over=null; s.view=null; S.hint=null; deselect();
+  s.eng.loadUci(s.game.start,s.game.moves); s.over=null; s.view=null; S.hint=null; deselect(); clockUndo(s);
   renderPieces({ms:200}); renderAll(); savePlay(); SFX.move();
   if(s.kind==='cpu'&&(s.eng.turn()?'b':'w')!==s.human) cpuMove();
 }
-function startPlay(kind,colorPref,level){
-  const s=sessions.play; S.token++; S.thinking=false;
+function startPlay(kind,colorPref,level,tc){
+  const s=sessions.play; S.token++; S.thinking=false; s.clock=clockNew(tc===undefined?(s.clock&&s.clock.k):tc);
   s.kind=kind; s.level=level; s.human=colorPref==='r'?(Math.random()<.5?'w':'b'):colorPref;
   s.game=newGame(); s.eng.loadUci(START,[]); s.over=null; s.view=null; s.orientation=kind==='cpu'?s.human:'w';
   S.hint=null; deselect(); savePlay();
@@ -2572,7 +2633,7 @@ function openReading(i){
   $('#sheet').onclick=e=>{ if(e.target.closest('#rdBack')) openReadings(); else if(e.target.closest('#rdNext')) openReading(i+1); };
 }
 // Read-only handle for automated tests.
-Object.defineProperty(window,'__tc',{value:{ENDGAMES,startEndgame,get egStars(){ return egStars; },get pzStreak(){ return pzStreak; },startThemePuzzle,PZ_THEMES,get pzProg(){ return pzProg; },startReview,rvDone,get B3(){ return B3; },get S(){ return S; },enable3D,off3D,settings,OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
+Object.defineProperty(window,'__tc',{value:{timeoutResult,clockFmt,ENDGAMES,startEndgame,get egStars(){ return egStars; },get pzStreak(){ return pzStreak; },startThemePuzzle,PZ_THEMES,get pzProg(){ return pzProg; },startReview,rvDone,get B3(){ return B3; },get S(){ return S; },enable3D,off3D,settings,OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
 
 /* ================= family (online) ================= */
 /* Family games over Firebase Realtime Database.
@@ -2863,12 +2924,12 @@ function capturedInfo(board){
   for(const c of 'wb') for(const t of 'qrbnp'){ const n=Math.max(0,init[t]-cnt[c][t]); for(let i=0;i<n;i++) lost[c].push(t); }
   return {lost,diff:mat.w-mat.b};
 }
-function stripHTML(color,name,sub,avatar,{turn,thinking,online,lvl,nocaps}={}){
+function stripHTML(color,name,sub,avatar,{turn,thinking,online,lvl,nocaps,clock}={}){
   const {board}=displayed(); const ci=capturedInfo(board);
   const opp=color==='w'?'b':'w';
   const caps=ci.lost[opp].map(t=>`<img src="${IMG[opp+t.toUpperCase()]}" alt="">`).join('');
   const adv=color==='w'?ci.diff:-ci.diff;
-  return `<div class="av${turn?' turn':''}">${avatar}</div><div style="min-width:0"><div class="pname">${esc(name)}${online!==undefined?`<span class="online-dot${online?' on':''}"></span>`:''}${thinking?'<span class="thinking"><i></i><i></i><i></i></span>':''}</div>${sub?`<div class="psub">${esc(sub)}</div>`:''}</div>${lvl?'<button class="lvchip" data-act="level" aria-label="Change computer level">Level ▾</button>':''}${nocaps?'':`<div class="caps">${caps}${adv>0?`<span class="adv">+${adv}</span>`:''}</div>`}`;
+  return `<div class="av${turn?' turn':''}">${avatar}</div><div style="min-width:0"><div class="pname">${esc(name)}${online!==undefined?`<span class="online-dot${online?' on':''}"></span>`:''}${thinking?'<span class="thinking"><i></i><i></i><i></i></span>':''}</div>${sub?`<div class="psub">${esc(sub)}</div>`:''}</div>${lvl?'<button class="lvchip" data-act="level" aria-label="Change computer level">Level ▾</button>':''}${nocaps?'':`<div class="caps">${caps}${adv>0?`<span class="adv">+${adv}</span>`:''}</div>`}${clock?`<span class="clock" data-clock="${color}" role="timer" aria-label="${color==='w'?'White':'Black'} clock"></span>`:''}`;
 }
 function esc(t){ return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function renderStrips(){
@@ -2888,7 +2949,8 @@ function renderStrips(){
     for(const c of 'wb'){ const id=c==='w'?s.white:s.black; info[c]={name:s.gid?Fam.nm(id):(c==='w'?'White':'Black'),av:id?av(id):pimg(c),online:(s.gid&&id&&id!==Fam.myId)?Fam.oppOnline:undefined}; }
   }
   const bottom=s.orientation, top=bottom==='w'?'b':'w';
-  for(const [el,c] of [[$('#stripTop'),top],[$('#stripBottom'),bottom]]){ const i=info[c]; el.innerHTML=stripHTML(c,i.name,i.sub,i.av,{turn:!s.over&&stm===c,thinking:i.thinking,online:i.online,lvl:i.lvl,nocaps:i.nocaps}); }
+  for(const [el,c] of [[$('#stripTop'),top],[$('#stripBottom'),bottom]]){ const i=info[c]; el.innerHTML=stripHTML(c,i.name,i.sub,i.av,{turn:!s.over&&stm===c,thinking:i.thinking,online:i.online,lvl:i.lvl,nocaps:i.nocaps,clock:S.tab==='play'&&!!s.clock}); }
+  if(S.tab==='play') clockPaint();
 }
 const ICON={
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
@@ -3026,7 +3088,7 @@ $('#panel').addEventListener('click',e=>{
     case 'live': setView(null); break;
     case 'oplist': openOpenings(); break;
     case 'oprestart': startOpening(s.op); break;
-    case 'opplay': { const moves=s.game.moves.slice(); const side=s.op.side; startPlay('cpu',side,3); const p=sessions.play; for(const u of moves){ const m=p.eng.fromUci(u); p.game.sans.push(p.eng.san(m)); p.eng.make(m); p.game.moves.push(u);} renderPieces({instant:true}); renderAll(); savePlay(); if((p.eng.turn()?'b':'w')!==p.human) cpuMove(); toast('Playing on against Oak'); break; }
+    case 'opplay': { const moves=s.game.moves.slice(); const side=s.op.side; startPlay('cpu',side,3,'off'); const p=sessions.play; for(const u of moves){ const m=p.eng.fromUci(u); p.game.sans.push(p.eng.san(m)); p.eng.make(m); p.game.moves.push(u);} renderPieces({instant:true}); renderAll(); savePlay(); if((p.eng.turn()?'b':'w')!==p.human) cpuMove(); toast('Playing on against Oak'); break; }
     case 'pzlist': openPuzzles(); break;
     case 'pzclue': if(s.tp) themeClue(s); else { s.showHint=true; renderPanel(); } break;
     case 'pzretry': if(s.tp) startThemePuzzle(s.tp.theme,s.tp.band,s.tp.id); else startPuzzle(s.p); break;
@@ -3046,7 +3108,7 @@ $('#panel').addEventListener('click',e=>{
     case 'fgguess': s.guess=!s.guess; store.set('fgGuess',s.guess); if(s.checking){ renderAll(); break; } if(!s.guess){ s.awaitGuess=false; s.msg=''; } else fgPrompt(s); S.hint=null; renderAll(); break;
     case 'lsretry': startLesson(s.les); break;
     case 'lsnext': { const i=s.les?LESSONS.indexOf(s.les):-1; startLesson(LESSONS.find((l,k)=>k>i&&!learnDone[l.id])||LESSONS[(i+1)%LESSONS.length]); break; }
-    case 'lsplay': startPlay('cpu','w',0); toast('Your first game against Twig. Good luck!'); break;
+    case 'lsplay': startPlay('cpu','w',0,'off'); toast('Your first game against Twig. Good luck!'); break;
     case 'lobby': openLobby(); break;
     case 'famjoin': openJoin(); break;
     case 'tabplay': switchTab('play'); break;
@@ -3060,6 +3122,7 @@ $('#panel').addEventListener('click',e=>{
 function switchTab(t,silent){
   if(D.active) return;
   S.tab=t; S.selected=-1; S.targets=new Map(); S.hint=null; S.flashes=[];
+  if(t==='play') clockStart(sessions.play); else if(sessions.play.clock&&sessions.play.clock.run){ clockStop(sessions.play.clock); savePlay(); }
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
   renderLabels(); renderPieces({instant:true}); renderAll();
   store.set('tab',t);
@@ -3083,7 +3146,7 @@ function confirmSheet(title,text,okLabel,fn){
   $('#cNo').onclick=closeSheet; $('#cYes').onclick=()=>{ closeSheet(); fn(); };
 }
 function openNewGame(){
-  const s=sessions.play; let kind=s.kind, color=s.human, level=s.level;
+  const s=sessions.play; let kind=s.kind, color=s.human, level=s.level, tc=store.get('tc','off'); if(!TIME_CONTROLS.some(t=>t.k===tc)) tc='off';
   const draw=()=>{
     openSheet(`<h2>New game</h2>
     <div class="seg" id="ngKind"><button data-k="cpu" class="${kind==='cpu'?'on':''}">vs Computer</button><button data-k="local" class="${kind==='local'?'on':''}">2 players, 1 phone</button></div>
@@ -3093,11 +3156,13 @@ function openNewGame(){
       <button data-c="b" class="${color==='b'?'on':''}"><img src="${IMG.bK}" alt="">Black</button></div>
     <h4>Computer level</h4><div class="levels" id="ngLevel">${LEVELS.map((l,i)=>`<button data-l="${i}" class="${level===i?'on':''}"><b>${l.name}</b><span>${l.desc}</span><div class="lvbar">${LEVELS.map((_,j)=>`<i class="${j<=i?'f':''}"></i>`).join('')}</div></button>`).join('')}</div>`
     :`<p class="note" style="margin-top:14px">Pass the phone between turns. Use <b>Flip</b> to turn the board around.</p>`}
+    <h4>Clock</h4><div class="tcs" id="ngTc">${TIME_CONTROLS.map(t=>`<button data-tc="${t.k}" class="${tc===t.k?'on':''}"><b>${t.name}</b><span>${t.sub}</span></button>`).join('')}</div>${tc!=='off'?'<p class="note" style="margin-top:6px">Each player has this much time for the whole game (plus the extra seconds after every move). Run out and you lose.</p>':''}
     <div class="row"><button class="btn primary" id="ngGo">Start game</button></div>`,'new');
+    $('#ngTc').onclick=e=>{ const b=e.target.closest('[data-tc]'); if(b){ tc=b.dataset.tc; store.set('tc',tc); draw(); } };
     $('#ngKind').onclick=e=>{ const b=e.target.closest('button'); if(b){ kind=b.dataset.k; draw(); } };
     if($('#ngColor')) $('#ngColor').onclick=e=>{ const b=e.target.closest('button'); if(b){ color=b.dataset.c; draw(); } };
     if($('#ngLevel')) $('#ngLevel').onclick=e=>{ const b=e.target.closest('button'); if(b){ level=+b.dataset.l; draw(); } };
-    $('#ngGo').onclick=()=>{ closeSheet(); startPlay(kind,color,level); };
+    $('#ngGo').onclick=()=>{ closeSheet(); startPlay(kind,color,level,tc); };
   };
   draw();
 }
@@ -3407,7 +3472,7 @@ function showGameOver(s){
   openSheet(`<div class="big">${esc(big)}</div><div class="sub">${esc(sub)}</div>
    <div class="row">${isPlay?`<button class="btn primary" id="goAgain">Play again</button><button class="btn" id="goNew">New game…</button>`:`<button class="btn primary" id="goLobby">Lobby</button>`}<button class="btn" id="goReview">Review game</button></div><p class="note" style="margin-top:10px;text-align:center">Review shows your best moves and mistakes, and what you could have played instead.</p>`,'over');
   $('#goReview').onclick=()=>{ closeSheet(); startReview(s); };
-  if(isPlay){ $('#goAgain').onclick=()=>{ closeSheet(); startPlay(s.kind,s.kind==='cpu'?(s.human==='w'?'b':'w'):'w',s.level); }; $('#goNew').onclick=()=>{ closeSheet(); openNewGame(); }; }
+  if(isPlay){ $('#goAgain').onclick=()=>{ closeSheet(); startPlay(s.kind,s.kind==='cpu'?(s.human==='w'?'b':'w'):'w',s.level,s.clock&&s.clock.k); }; $('#goNew').onclick=()=>{ closeSheet(); openNewGame(); }; }
   else $('#goLobby').onclick=()=>{ openLobby(); };
 }
 // Join a game from inside the app by pasting the invite link (or just its code).
@@ -3503,6 +3568,8 @@ switchTab(S.tab,true);
 const ps=sessions.play;
 if(ps.kind==='cpu'&&ps.eng.status()==='ongoing'&&(ps.eng.turn()?'b':'w')!==ps.human) setTimeout(cpuMove,500);
 else if(ps.eng.status()!=='ongoing'){ ps.over=resultText(ps.eng.status(),ps.eng.turn()?'b':'w'); renderAll(); }
+if(ps.clock&&ps.clock.flag&&!ps.over){ ps.over=timeoutResult(ps.eng,ps.clock.flag); renderAll(); } // it ran out before the app was closed
+clockStart(ps); // a saved clock carries on (time while the app was closed is not counted)
 Fam.init();
 if(settings.board3d) setTimeout(()=>enable3D(),0);
 if('serviceWorker' in navigator&&location.protocol==='https:'){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }
