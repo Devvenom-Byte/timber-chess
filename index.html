@@ -217,6 +217,19 @@ nav.tabs button.on{color:var(--accent2);background:rgba(227,165,90,.1)}
 #board3d canvas{display:block;width:100%;height:100%}
 #board3d .b3view{position:absolute;top:8px;right:8px;z-index:5;height:34px;padding:0 12px;border-radius:17px;border:1px solid rgba(255,228,190,.25);background:rgba(21,16,12,.62);color:var(--text);font:inherit;font-size:13px;display:flex;align-items:center;gap:6px;backdrop-filter:blur(4px)}
 #board3d .b3load{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px}
+.rv .who{display:flex;align-items:center;gap:8px;font-size:14px;margin:5px 0;flex-wrap:wrap}
+.rv .who b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46%}
+.rv .acc{margin-left:auto;font-weight:700;font-size:15px;color:var(--accent2)}
+.rvc{font-size:12px;font-weight:700;padding:1px 7px;border-radius:9px;background:rgba(255,255,255,.07)}
+.rvc.blunder{color:#ef7462}.rvc.mistake{color:#eea25a}.rvc.inacc{color:#e6cd62}
+.rv svg[data-act]{display:block;width:100%;height:56px;border-radius:9px;margin:8px 0 6px;cursor:pointer;background:#2a1f18;touch-action:manipulation}
+.rvbar{height:7px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:8px}.rvbar i{display:block;height:100%;background:var(--accent);transition:width .25s}
+.rvtag{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:9px;margin-left:6px;vertical-align:1px;background:rgba(255,255,255,.08)}
+.rvtag.best,.rvtag.excellent{color:#8fd07a}.rvtag.good{color:#c9d6a0}.rvtag.book{color:#d7b88a}.rvtag.inacc{color:#e6cd62}.rvtag.mistake{color:#eea25a}.rvtag.blunder{color:#ef7462}
+.rv .controls{flex-wrap:nowrap}.rv .controls .btn{min-height:40px;padding:7px 10px;font-size:14px;flex:1 1 auto;white-space:nowrap}.rv .controls .btn.sq{flex:0 0 44px;padding:0}
+.rv .say{margin-top:8px;font-size:14.5px;line-height:1.45}
+.mlist .mv[data-rv]::after{font-size:11px;font-weight:800;margin-left:1px}
+.mlist .mv[data-rv="inacc"]::after{content:'?!';color:#e6cd62}.mlist .mv[data-rv="mistake"]::after{content:'?';color:#eea25a}.mlist .mv[data-rv="blunder"]::after{content:'??';color:#ef7462}.mlist .mv[data-rv="best"]::after{content:'★';color:#8fd07a;font-size:9px}
 .segrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .seg{display:flex;background:var(--panel);border-radius:10px;padding:3px;gap:2px}
 .seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;padding:7px 10px;border-radius:8px}
@@ -1538,7 +1551,7 @@ function renderHL(){
   if(B3){ const live=s.view===null, marks=S.flashes.map(f=>({sq:f.s,color:f.cls==='wrong'?'red':'green'}));
     if(S.tab==='learn'&&s.les&&!s.done&&!s.checking){ const st=learnStep(s); if(st&&st.goal.to) for(const t of st.goal.to) marks.push({sq:nameSq(t),color:'blue'}); }
     let check=null; if(eng.inCheck()){ const k=eng.kingSquare(); check=(k>>4)*8+(k&7); }
-    B3.setHighlights({lastMove:last&&settings.last?[last.slice(0,2),last.slice(2,4)]:null, selected:live?S.selected:-1, targets:settings.dots&&live?S.targets:[], check, hint:S.hint&&live?[S.hint.slice(0,2),S.hint.slice(2,4)]:null, marks});
+    B3.setHighlights({lastMove:last&&settings.last?[last.slice(0,2),last.slice(2,4)]:null, selected:live?S.selected:-1, targets:settings.dots&&live?S.targets:[], check, hint:arrowMove()?[arrowMove().slice(0,2),arrowMove().slice(2,4)]:null, marks});
     return; }
   let h='';
   const put=(sq,cls)=>{ const [x,y]=sqXY(sq); h+=`<div class="hl ${cls}" style="transform:translate(${x}px,${y}px)"></div>`; };
@@ -1556,8 +1569,9 @@ function renderHL(){
 }
 S.flashes=[];
 function flash(sq,cls){ const f={s:sq,cls}; S.flashes.push(f); renderHL(); setTimeout(()=>{ S.flashes=S.flashes.filter(x=>x!==f); renderHL(); },1100); }
+function arrowMove(){ const s=cur(); if(s.view===null) return S.hint; return S.revArrow&&S.revArrow.s===s&&S.revArrow.view===s.view?S.revArrow.mv:null; }
 function renderArrows(){
-  const a=S.hint; if(!a||cur().view!==null){ arrowsEl.innerHTML=''; return; }
+  const a=arrowMove(); if(!a){ arrowsEl.innerHTML=''; return; }
   const [x1,y1]=sqXY(nameSq(a.slice(0,2))), [x2,y2]=sqXY(nameSq(a.slice(2,4)));
   const cx1=x1+SQ/2,cy1=y1+SQ/2,cx2=x2+SQ/2,cy2=y2+SQ/2;
   const ang=Math.atan2(cy2-cy1,cx2-cx1), len=Math.hypot(cx2-cx1,cy2-cy1)-SQ*0.32;
@@ -2261,7 +2275,7 @@ function openReading(i){
   $('#sheet').onclick=e=>{ if(e.target.closest('#rdBack')) openReadings(); else if(e.target.closest('#rdNext')) openReading(i+1); };
 }
 // Read-only handle for automated tests.
-Object.defineProperty(window,'__tc',{value:{get B3(){ return B3; },get S(){ return S; },enable3D,off3D,settings,OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
+Object.defineProperty(window,'__tc',{value:{startReview,rvDone,get B3(){ return B3; },get S(){ return S; },enable3D,off3D,settings,OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
 
 /* ================= family (online) ================= */
 /* Family games over Firebase Realtime Database.
@@ -2595,10 +2609,11 @@ const ICON={
 function movesHTML(s){
   const sans=s.game.sans; if(!sans.length) return `<div class="mlist" id="mlist"><span class="empty">No moves yet</span></div>`;
   const startBlack=s.game.start.split(' ')[1]==='b'; const startNum=+(s.game.start.split(' ')[5]||1);
-  let h='', curIdx=s.view===null?sans.length:s.view;
+  let h='', curIdx=s.view===null?sans.length:s.view; const R=rvDone(s);
   for(let i=0;i<sans.length;i++){
     const ply=i+(startBlack?1:0); if(ply%2===0||i===0) h+=`<span class="num">${startNum+Math.floor(ply/2)}.${ply%2===1&&i===0?'..':''}</span>`;
-    h+=`<span class="mv${i+1===curIdx?' cur':''}" data-i="${i+1}">${esc(sans[i])}</span>`;
+    const rc=R&&R.moves[i]&&['best','inacc','mistake','blunder'].includes(R.moves[i].cls)?` data-rv="${R.moves[i].cls}"`:'';
+    h+=`<span class="mv${i+1===curIdx?' cur':''}" data-i="${i+1}"${rc}>${esc(sans[i])}</span>`;
   }
   return `<div class="mlist" id="mlist">${h}</div>`;
 }
@@ -2619,8 +2634,8 @@ function renderPanel(){
   const s=cur(); const P=$('#panel'); let h='';
   const opn=openingName(s.game.moves.slice(0,s.view===null?undefined:s.view));
   if(S.tab==='play'){
-    h+=`<div class="status"><span>${statusLine(s)}</span>${opn&&s.game.start===START?`<button class="op" data-act="opinfo" aria-label="About this opening">${esc(opn)}</button>`:''}</div>`;
-    h+=`<div class="controls"><button class="btn primary" data-act="new">${ICON.plus}New</button><button class="btn" data-act="undo" ${s.game.moves.length?'':'disabled'}>${ICON.undo}Undo</button><button class="btn" data-act="hint" ${s.over?'disabled':''}>${ICON.bulb}Hint</button><button class="btn" data-act="flip">${ICON.flip}Flip</button></div>`;
+    h+=`<div class="status"><span>${statusLine(s)}</span>${opn&&s.game.start===START?`<button class="op" data-act="opinfo" aria-label="About this opening">${esc(opn)}</button>`:''}</div>`; h+=reviewHTML(s);
+    h+=`<div class="controls"><button class="btn primary" data-act="new">${ICON.plus}New</button><button class="btn" data-act="undo" ${s.game.moves.length?'':'disabled'}>${ICON.undo}Undo</button>${s.over?`<button class="btn" data-act="review">${ICON.bulb}Review</button>`:`<button class="btn" data-act="hint">${ICON.bulb}Hint</button>`}<button class="btn" data-act="flip">${ICON.flip}Flip</button></div>`;
     h+=navHTML(s);
   } else if(S.tab==='openings'){
     if(!s.op){ h+=`<div class="card"><h3>Learn the openings</h3><p>An encyclopedia of ${OPENING_BOOK.length} openings and variations: what they aim for, the traps to avoid and who plays them. Pick one and practise the moves yourself; the book replies and tells you when you go wrong.</p></div><div class="controls"><button class="btn primary" data-act="oplist">${ICON.list}Browse & search openings</button></div>`; }
@@ -2675,8 +2690,8 @@ function renderPanel(){
       h+=`<div class="status"><span>${st}</span>${opn?`<button class="op" data-act="opinfo" aria-label="About this opening">${esc(opn)}</button>`:''}</div>`;
       if(oppOffer) h+=`<div class="banner">🤝 ${esc(Fam.nm(Fam.oppId()))} offers a draw<button data-act="draw">Accept</button></div>`;
       if(s.status==='active'&&!s.over) h+=`<div class="reacts">${REACTS.map(e=>`<button data-react="${e}">${e}</button>`).join('')}</div>`;
-      h+=`<div class="controls"><button class="btn" data-act="lobby">${ICON.users}Lobby</button>${s.status==='open'?`<button class="btn" data-act="famcancel">Cancel game</button>`:`<button class="btn" data-act="draw" ${s.over||!s.myColor?'disabled':''}>${ICON.hand}Draw</button><button class="btn" data-act="resign" ${s.over||!s.myColor?'disabled':''}>${ICON.flag}Resign</button>`}<button class="btn" data-act="flip">${ICON.flip}</button></div>`;
-      h+=navHTML(s);
+      h+=`<div class="controls"><button class="btn" data-act="lobby">${ICON.users}Lobby</button>${s.status==='open'?`<button class="btn" data-act="famcancel">Cancel game</button>`:(s.over?`<button class="btn" data-act="review">${ICON.bulb}Review</button>`:`<button class="btn" data-act="draw" ${!s.myColor?'disabled':''}>${ICON.hand}Draw</button><button class="btn" data-act="resign" ${!s.myColor?'disabled':''}>${ICON.flag}Resign</button>`)}<button class="btn" data-act="flip">${ICON.flip}</button></div>`;
+      h+=navHTML(s); h+=reviewHTML(s);
     }
   }
   P.innerHTML=h;
@@ -2687,7 +2702,7 @@ function renderAll(){ renderStrips(); renderPanel(); renderHL(); }
 function setView(v){
   const s=cur(); const n=s.game.moves.length;
   if(v!==null){ v=clamp(v,0,n); if(v===n) v=null; }
-  s.view=v; deselect(); S.hint=null; renderPieces({ms:180}); renderAll();
+  s.view=v; deselect(); S.hint=null; S.revArrow=null; renderPieces({ms:180}); renderAll();
 }
 $('#panel').addEventListener('click',e=>{
   const b=e.target.closest('[data-act],[data-i],[data-react]'); if(!b) return; ac();
@@ -2698,6 +2713,11 @@ $('#panel').addEventListener('click',e=>{
     case 'new': openNewGame(); break;
     case 'undo': undo(); break;
     case 'hint': showHint(); break;
+    case 'review': startReview(s); break;
+    case 'rvstop': s.review=null; renderAll(); break;
+    case 'rvnext': case 'rvprev': rvJump(s,b.dataset.act==='rvnext'?1:-1); break;
+    case 'rvbest': rvShowBest(s); break;
+    case 'rvgraph': { const R=rvDone(s); if(R){ const r=b.getBoundingClientRect(); setView(clamp(Math.round((e.clientX-r.left)/r.width*R.n),0,R.n)); } break; }
     case 'flip': flip(); break;
     case 'prev': setView((s.view===null?s.game.moves.length:s.view)-1); break;
     case 'next': if(s.view!==null) setView(s.view+1); break;
@@ -2917,6 +2937,134 @@ function copyPgn(){
   const txt=head+pgn.trim();
   navigator.clipboard.writeText(txt).then(()=>toast('Moves copied')).catch(()=>toast('Copy isn\'t allowed here'));
 }
+/* ================= game review ================= */
+// After a game, the engine looks at every position. For each move we compare how good the position was before
+// and after it (as a winning chance, 0-100%), name the move (Best ... Blunder) and explain it in plain words.
+const RV_NAME={book:'Book',best:'Best',excellent:'Excellent',good:'Good',inacc:'Small slip',mistake:'Mistake',blunder:'Blunder'};
+const PIECE_WORD={p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen',k:'king'};
+const RV_MATE=100000;
+const rvKey=s=>s.game.start+'|'+s.game.moves.join(' ');
+function rvDone(s){ const R=s&&s.review; return R&&!R.running&&R.key===rvKey(s)?R:null; }
+const rvCp=sc=>sc>RV_MATE-1000?3000-(RV_MATE-sc):sc<-RV_MATE+1000?-3000+(RV_MATE+sc):clamp(sc,-2500,2500);
+const rvWin=sc=>50+50*(2/(1+Math.exp(-0.00368208*rvCp(sc)))-1);
+const rvMateIn=sc=>Math.ceil((RV_MATE-Math.abs(sc))/2);
+function rvSide(s,c){
+  if(s===sessions.play&&s.kind==='cpu') return c===s.human?'You':LEVELS[s.level].name;
+  if(s===sessions.family&&s.gid) return Fam.nm(Fam.player(c));
+  return c==='w'?'White':'Black';
+}
+function rvMover(s,i){ const b=s.game.start.split(' ')[1]==='b'; return ((i%2===0)!==b)?'w':'b'; }
+function rvIsBook(s,i){
+  if(s.game.start!==START||i>=24) return false;
+  const pre=s.game.moves.slice(0,i+1);
+  return OPENING_BOOK.some(b=>b.uci.length>i&&pre.every((m,k)=>b.uci[k]===m));
+}
+async function startReview(s){
+  const moves=s.game.moves.slice(), n=moves.length;
+  if(n<2){ toast('Play a few moves first, then review the game.'); return; }
+  if(rvDone(s)){ renderAll(); return; }
+  const R={key:rvKey(s),n,running:true,done:0,pos:[],moves:[]};
+  s.review=R; renderPanel();
+  const e=EngineFactory();
+  for(let i=0;i<=n;i++){
+    if(s.review!==R) return;
+    if(rvKey(s)!==R.key){ s.review=null; if(cur()===s) renderPanel(); return; }
+    e.loadUci(s.game.start,moves.slice(0,i));
+    const st=e.status(); let r;
+    if(st==='checkmate') r={score:-RV_MATE,move:null};
+    else if(st!=='ongoing'&&i===n) r={score:0,move:null};
+    else r=await askEngine(s.game.start,moves.slice(0,i),{timeMs:420,maxDepth:16});
+    R.pos[i]={score:r?r.score:0,best:r?r.move:null};
+    R.done=i+1;
+    if(cur()===s){ const bar=document.querySelector('.rvbar i'); if(bar) bar.style.width=Math.round(R.done/(n+1)*100)+'%'; }
+  }
+  if(s.review!==R) return;
+  const acc={w:[],b:[]};
+  for(let i=0;i<n;i++){
+    const c=rvMover(s,i), P0=R.pos[i], P1=R.pos[i+1];
+    const before=P0.score, after=moves[i]===P0.best?Math.max(before,-P1.score):-P1.score;
+    const loss=Math.max(0,rvWin(before)-rvWin(after));
+    let cls=moves[i]===P0.best?'best':loss<2?'excellent':loss<5?'good':loss<10?'inacc':loss<20?'mistake':'blunder';
+    if(rvIsBook(s,i)&&loss<10) cls='book';
+    R.moves.push({c,cls,loss,before,after});
+    acc[c].push(cls==='book'?100:clamp(103.1668*Math.exp(-0.04354*loss)-3.1669,0,100));
+  }
+  R.acc={w:acc.w.length?Math.round(acc.w.reduce((a,b)=>a+b,0)/acc.w.length):null,b:acc.b.length?Math.round(acc.b.reduce((a,b)=>a+b,0)/acc.b.length):null};
+  R.running=false;
+  if(cur()===s){ const first=rvList(s)[0]; setView(first!==undefined?first+1:null); if(first===undefined) renderAll(); }
+}
+// Which moves "Next mistake" steps through: your moves against the computer, everyone's otherwise.
+function rvList(s){ const R=rvDone(s); if(!R) return []; const mine=s===sessions.play&&s.kind==='cpu'?s.human:(s===sessions.family&&s.myColor)||null;
+  return R.moves.map((m,i)=>i).filter(i=>['inacc','mistake','blunder'].includes(R.moves[i].cls)&&(!mine||R.moves[i].c===mine)); }
+function rvJump(s,dir){
+  const list=rvList(s); if(!list.length){ toast('No mistakes to show. Well played!'); return; }
+  const at=(s.view===null?s.game.moves.length:s.view)-1;
+  let k=dir>0?list.find(i=>i>at):[...list].reverse().find(i=>i<at);
+  if(k===undefined) k=dir>0?list[0]:list[list.length-1];
+  setView(k+1);
+}
+function rvShowBest(s){
+  const R=rvDone(s); if(!R) return; const i=R.focus; if(i==null||!R.pos[i].best) return;
+  setView(i); S.revArrow={s,view:i,mv:R.pos[i].best,idx:i}; renderHL(); renderPanel();
+}
+function rvEvalWords(sc,c){ // sc from c's point of view
+  const w=c==='w'?sc:-sc;
+  if(Math.abs(w)>RV_MATE-1000) return (w>0?'White':'Black')+' can force checkmate';
+  const a=Math.abs(w), who=w>0?'White':'Black';
+  if(a<40) return 'The position is about equal'; if(a<120) return who+' is slightly better'; if(a<300) return who+' is better'; return who+' is winning';
+}
+function rvExplain(s,R,i){
+  const m=R.moves[i], P0=R.pos[i], P1=R.pos[i+1], e=EngineFactory(); e.loadUci(s.game.start,s.game.moves.slice(0,i));
+  const sanOf=(eng,u)=>{ const mv=u?eng.fromUci(u):0; return mv?eng.san(mv):''; };
+  const capOn=(eng,u)=>{ if(!u) return ''; const p=eng.board()[nameSq(u.slice(2,4))]; return p?PIECE_WORD[p.toLowerCase()]:''; };
+  const bSan=sanOf(e,P0.best), bCap=capOn(e,P0.best), bMate=/#$/.test(bSan);
+  const e2=EngineFactory(); e2.loadUci(s.game.start,s.game.moves.slice(0,i+1));
+  const rSan=sanOf(e2,P1.best), rCap=capOn(e2,P1.best);
+  const opp=rvSide(s,m.c==='w'?'b':'w'), oppName=opp==='You'?'you':opp;
+  const better=bSan?`Better was <b>${esc(bSan)}</b>${bMate?', checkmate!':bCap?`, taking the ${bCap}`:''}.`:'';
+  switch(m.cls){
+    case 'book': { const o=openingName(s.game.moves.slice(0,i+1)); return `A well-known opening move${o?` (${esc(o)})`:''}.`; }
+    case 'best': return /#$/.test(s.game.sans[i])?'Checkmate! The best possible move.':'The best move. Exactly what the computer would have played.';
+    case 'excellent': return `Excellent. Almost as strong as the top choice${bSan?`, <b>${esc(bSan)}</b>`:''}.`;
+    case 'good': return `A good move. ${bSan?`<b>${esc(bSan)}</b> was a little more precise.`:''}`;
+  }
+  let why='';
+  if(P1.score>RV_MATE-1000) why=`This allows checkmate in ${rvMateIn(P1.score)}${rSan?`, starting with <b>${esc(rSan)}</b>`:''}.`;
+  else if(P0.score>RV_MATE-1000) why=`You had a forced checkmate in ${rvMateIn(P0.score)}.`;
+  else if(rCap&&rCap!=='pawn'||rCap&&m.cls!=='inacc') why=`It lets ${esc(oppName)} play <b>${esc(rSan)}</b>, taking the ${rCap}.`;
+  else if(rSan&&m.cls!=='inacc') why=`${esc(opp==='You'?'You':opp)} can answer with <b>${esc(rSan)}</b>.`;
+  else why=m.cls==='inacc'?'Not a disaster, but it gives away some of your advantage.':'This makes your position noticeably worse.';
+  return why+' '+better;
+}
+function rvGraph(R){
+  const n=R.n, H=40;
+  // white's winning chance after each move
+  const wp=i=>{ const sc=R.pos[i].score, stm=(R.whiteFirst?(i%2===0):(i%2===1))?'w':'b'; return rvWin(stm==='w'?sc:-sc); };
+  let d=`M0 ${H}`; for(let i=0;i<=n;i++) d+=` L${i} ${(H-wp(i)/100*H).toFixed(2)}`; d+=` L${n} ${H} Z`;
+  let dots=''; R.moves.forEach((m,i)=>{ if(m.cls==='mistake'||m.cls==='blunder'){ const y=H-wp(i+1)/100*H; dots+=`<circle cx="${i+1}" cy="${y.toFixed(2)}" r="${Math.max(.6,n/90)}" fill="${m.cls==='blunder'?'#ef7462':'#eea25a'}"/>`; } });
+  return `<svg data-act="rvgraph" viewBox="0 0 ${n} ${H}" preserveAspectRatio="none" role="img" aria-label="How the game went. Tap to jump to a move."><path d="${d}" fill="#efe2cc" opacity=".9"/><line x1="0" y1="${H/2}" x2="${n}" y2="${H/2}" stroke="#8a7560" stroke-width=".25" vector-effect="non-scaling-stroke" stroke-dasharray="2 2"/>${R.curX!=null?`<line x1="${R.curX}" y1="0" x2="${R.curX}" y2="${H}" stroke="#e3a55a" stroke-width="2" vector-effect="non-scaling-stroke"/>`:''}${dots}</svg>`;
+}
+function reviewHTML(s){
+  const R=s.review; if(!R) return '';
+  if(R.key!==rvKey(s)) return '';
+  if(R.running) return `<div class="card rv"><h3>Reviewing the game…</h3><p>The computer is checking every move. This takes a few seconds.</p><div class="rvbar"><i style="width:${Math.round(R.done/(R.n+1)*100)}%"></i></div><div class="controls" style="margin-top:10px"><button class="btn" data-act="rvstop">Cancel</button></div></div>`;
+  R.whiteFirst=s.game.start.split(' ')[1]!=='b';
+  const v=s.view===null?R.n:s.view, ar=S.revArrow&&S.revArrow.s===s&&S.revArrow.view===s.view?S.revArrow:null;
+  const i=ar?ar.idx:v-1; R.focus=i>=0?i:null; R.curX=ar?ar.idx:v;
+  const cnt=c=>['blunder','mistake','inacc'].map(k=>{ const n=R.moves.filter(m=>m.c===c&&m.cls===k).length; return n?`<span class="rvc ${k}">${n} ${k==='inacc'?'slip'+(n>1?'s':''):k+(n>1?'s':'')}</span>`:''; }).join('');
+  const who=c=>R.acc[c]==null?'':`<div class="who"><span style="width:12px;height:12px;border-radius:3px;background:${c==='w'?'#efe2cc':'#3a2b20'};border:1px solid #8a7560;flex:none"></span><b>${esc(rvSide(s,c))}</b>${cnt(c)}<span class="acc">${R.acc[c]}%</span></div>`;
+  let say='';
+  if(R.focus==null) say='Tap a move, the graph, or <b>Next mistake</b> to step through the game.';
+  else { const m=R.moves[R.focus], n=R.focus, num=Math.floor((n+(R.whiteFirst?0:1))/2)+(+(s.game.start.split(' ')[5]||1)), dots=m.c==='w'?'.':'…';
+    say=`<b>${num}${dots} ${esc(s.game.sans[n])}</b><span class="rvtag ${m.cls}">${RV_NAME[m.cls]}</span><br>${rvExplain(s,R,n)}`;
+    if(ar) say+=`<br><span style="color:var(--good)">The green arrow shows the better move.</span>`;
+    else if(!['best','book'].includes(m.cls)) say+=`<br><span style="color:var(--muted);font-size:13px">${rvEvalWords(m.after,m.c)}.</span>`;
+  }
+  const bad=rvList(s).length, canBest=R.focus!=null&&!ar&&!['best','book'].includes(R.moves[R.focus].cls)&&R.pos[R.focus].best;
+  const me=s===sessions.play&&s.kind==='cpu'?s.human:(s===sessions.family&&s.myColor)||null, goodN=c=>R.moves.filter(m=>m.c===c&&['book','best','excellent','good'].includes(m.cls)).length, allN=c=>R.moves.filter(m=>m.c===c).length;
+  const cheer=me?`👏 You played <b>${goodN(me)} good move${goodN(me)===1?'':'s'}</b> out of ${allN(me)}.${bad?' Now let us look at the ones that could be better.':' Great game!'}`:`👏 White played <b>${goodN('w')}</b> good moves, Black played <b>${goodN('b')}</b>.`;
+  return `<div class="card rv"><h3>Game review</h3><div class="say">${say}</div><div class="controls" style="margin-top:10px">${bad?`<button class="btn sq" data-act="rvprev" aria-label="Previous mistake">${ICON.prev}</button><button class="btn primary" data-act="rvnext">Next mistake</button>`:''}${canBest?`<button class="btn" data-act="rvbest">${ICON.bulb}Better move</button>`:''}<button class="btn" data-act="rvstop">Close</button></div><div style="height:10px"></div><p style="margin-bottom:6px">${cheer}</p>${who('w')}${who('b')}<p style="font-size:12.5px;color:var(--muted)">The % is accuracy: how close the moves were to the computer's best.</p>${rvGraph(R)}<p style="font-size:12.5px;color:var(--muted)"><span style="color:#8fd07a">★</span> best · <span style="color:#e6cd62">?!</span> small slip · <span style="color:#eea25a">?</span> mistake · <span style="color:#ef7462">??</span> blunder (a big slip). The graph shows who was ahead; tap it to jump.</p></div>`;
+}
 function showGameOver(s){
   if(cur()!==s||!s.over) return;
   const o=s.over; let mine=null;
@@ -2926,8 +3074,8 @@ function showGameOver(s){
   if(mine&&o.win===mine||(!mine&&o.win)) SFX.win(); else if(o.win) SFX.lose(); else SFX.draw();
   const isPlay=s===sessions.play;
   openSheet(`<div class="big">${esc(big)}</div><div class="sub">${esc(sub)}</div>
-   <div class="row">${isPlay?`<button class="btn primary" id="goAgain">Play again</button><button class="btn" id="goNew">New game…</button>`:`<button class="btn primary" id="goLobby">Lobby</button>`}<button class="btn" id="goReview">Review</button></div>`,'over');
-  $('#goReview').onclick=closeSheet;
+   <div class="row">${isPlay?`<button class="btn primary" id="goAgain">Play again</button><button class="btn" id="goNew">New game…</button>`:`<button class="btn primary" id="goLobby">Lobby</button>`}<button class="btn" id="goReview">Review game</button></div><p class="note" style="margin-top:10px;text-align:center">Review shows your best moves and mistakes, and what you could have played instead.</p>`,'over');
+  $('#goReview').onclick=()=>{ closeSheet(); startReview(s); };
   if(isPlay){ $('#goAgain').onclick=()=>{ closeSheet(); startPlay(s.kind,s.kind==='cpu'?(s.human==='w'?'b':'w'):'w',s.level); }; $('#goNew').onclick=()=>{ closeSheet(); openNewGame(); }; }
   else $('#goLobby').onclick=()=>{ openLobby(); };
 }
