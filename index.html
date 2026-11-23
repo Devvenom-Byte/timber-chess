@@ -230,6 +230,11 @@ nav.tabs button.on{color:var(--accent2);background:rgba(227,165,90,.1)}
 .rv .say{margin-top:8px;font-size:14.5px;line-height:1.45}
 .mlist .mv[data-rv]::after{font-size:11px;font-weight:800;margin-left:1px}
 .mlist .mv[data-rv="inacc"]::after{content:'?!';color:#e6cd62}.mlist .mv[data-rv="mistake"]::after{content:'?';color:#eea25a}.mlist .mv[data-rv="blunder"]::after{content:'??';color:#ef7462}.mlist .mv[data-rv="best"]::after{content:'★';color:#8fd07a;font-size:9px}
+.pzlv{display:flex;gap:6px;margin:6px 0 4px}.pzlv button{flex:1;padding:9px 4px;border-radius:11px;border:1px solid var(--line);background:var(--panel);font:inherit;font-size:14px;color:var(--text)}
+.pzlv button.on{background:var(--accent);color:#2a1a0c;border-color:var(--accent);font-weight:700}
+.pzlv+.note{margin:2px 0 8px}
+.pzbar{height:4px;border-radius:2px;background:rgba(255,255,255,.08);margin-top:5px;overflow:hidden}.pzbar i{display:block;height:100%;background:var(--good)}
+.hl.right{background:rgba(120,200,100,.45);animation:fade 1s forwards}
 .segrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .seg{display:flex;background:var(--panel);border-radius:10px;padding:3px;gap:2px}
 .seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;padding:7px 10px;border-radius:8px}
@@ -1466,7 +1471,7 @@ function humanCanMove(color){
   switch(S.tab){
     case 'play': return s.kind==='local'||color===s.human;
     case 'openings': return s.op&&!s.done&&color===s.op.side;
-    case 'puzzles': return s.idx>=0&&!s.solved&&!s.checking&&color===s.side;
+    case 'puzzles': return (s.idx>=0||!!s.tp)&&!s.solved&&!s.checking&&color===s.side;
     case 'learn': if(s.fg) return s.awaitGuess&&!s.checking&&color===(s.game.moves.length%2?'b':'w'); return !!s.les&&!s.done&&!s.checking&&color==='w';
     case 'family': return Fam.canIMove(color);
   }
@@ -1551,11 +1556,11 @@ function renderHL(){
   if(B3){ const live=s.view===null, marks=S.flashes.map(f=>({sq:f.s,color:f.cls==='wrong'?'red':'green'}));
     if(S.tab==='learn'&&s.les&&!s.done&&!s.checking){ const st=learnStep(s); if(st&&st.goal.to) for(const t of st.goal.to) marks.push({sq:nameSq(t),color:'blue'}); }
     let check=null; if(eng.inCheck()){ const k=eng.kingSquare(); check=(k>>4)*8+(k&7); }
-    B3.setHighlights({lastMove:last&&settings.last?[last.slice(0,2),last.slice(2,4)]:null, selected:live?S.selected:-1, targets:settings.dots&&live?S.targets:[], check, hint:arrowMove()?[arrowMove().slice(0,2),arrowMove().slice(2,4)]:null, marks});
+    B3.setHighlights({lastMove:last&&(settings.last||S.tab==='puzzles')?[last.slice(0,2),last.slice(2,4)]:null, selected:live?S.selected:-1, targets:settings.dots&&live?S.targets:[], check, hint:arrowMove()?[arrowMove().slice(0,2),arrowMove().slice(2,4)]:null, marks});
     return; }
   let h='';
   const put=(sq,cls)=>{ const [x,y]=sqXY(sq); h+=`<div class="hl ${cls}" style="transform:translate(${x}px,${y}px)"></div>`; };
-  if(last&&settings.last){ put(nameSq(last.slice(0,2)),'last'); put(nameSq(last.slice(2,4)),'last'); }
+  if(last&&(settings.last||S.tab==='puzzles')){ put(nameSq(last.slice(0,2)),'last'); put(nameSq(last.slice(2,4)),'last'); }
   if(S.selected>=0&&s.view===null) put(S.selected,'sel');
   if(eng.inCheck()){ const k=eng.kingSquare(); put((k>>4)*8+(k&7),'check'); }
   if(D.hover>=0) put(D.hover,'hover');
@@ -1873,6 +1878,7 @@ async function showHint(){
   if(S.tab==='openings'){ S.hint=s.op.uci[s.game.moves.length]||null; renderHL(); return; }
   if(S.tab==='learn'&&s.fg){ if(s.awaitGuess&&!s.checking){ S.hint=s.fg.uci[s.game.moves.length]; renderHL(); } return; }
   if(S.tab==='learn'){ const st=learnStep(s); if(st&&!s.done&&!s.checking){ S.hint=st.sol; renderHL(); } return; }
+  if(S.tab==='puzzles'&&s.tp){ if(!s.solved&&!s.checking){ s.tp.helped=true; S.hint=s.tp.line[s.game.moves.length]; renderHL(); } return; }
   if(S.tab==='puzzles'){
     S.busy=true; renderPanel();
     const r=await askEngine(s.game.start,s.game.moves,{maxDepth:2*s.left-1,timeMs:15000,noPrune:true,mateDepth:2*s.left-1});
@@ -1918,13 +1924,14 @@ PUZZLES.forEach((p,i)=>{ p.i=i; if(p.start){ const u=sanToUci(p.start); const e=
 const PUZ_ORDER=PUZZLES.slice().sort((a,b)=>a.mate-b.mate);
 function startPuzzle(p){
   const s=sessions.puzzles; S.token++;
-  s.idx=p.i; s.p=p; s.game=newGame(p.fen); s.eng.loadUci(p.fen,[]); s.left=p.mate; s.solved=false; s.view=null; s.over=null; s.checking=false;
+  s.tp=null; s.idx=p.i; s.p=p; s.game=newGame(p.fen); s.eng.loadUci(p.fen,[]); s.left=p.mate; s.solved=false; s.view=null; s.over=null; s.checking=false;
   s.side=s.eng.turn()?'b':'w'; s.orientation=s.side; s.showHint=false;
   s.msg=`${s.side==='w'?'White':'Black'} to move. Find mate in ${p.mate}.`; s.msgType='';
   S.hint=null; deselect();
   if(S.tab!=='puzzles') switchTab('puzzles',true); else { renderLabels(); renderPieces({instant:true}); renderAll(); }
 }
 async function puzzleAfter(s){
+  if(s.tp) return themeAfter(s);
   const n=s.game.moves.length;
   const myMove=(s.eng.turn()?'b':'w')!==s.side;
   if(!myMove){ renderAll(); return; }
@@ -1945,6 +1952,90 @@ async function puzzleAfter(s){
     await new Promise(x=>setTimeout(x,550)); if(tok!==S.token) return;
     s.checking=false; commitMove(r.move,{session:s});
   } else await wrong('That lets the king escape. Try again.');
+}
+
+/* ================= themed puzzles ================= */
+// Puzzles from the Lichess puzzle database (CC0), built by tools/build-puzzles.mjs into small per-theme JSON
+// files. A theme's file is downloaded the first time it is opened, then the service worker keeps it for
+// offline use. The folder name is versioned, so a rebuilt collection never mixes with an old cached one.
+// Data format: {theme, bands:{easy|medium|hard:[[id, fen, 'uci moves', rating], ...]}}.
+// The FEN is the position BEFORE the opponent's move; moves alternate opponent, you, opponent, you...
+const PUZZLE_DATA='puzzles/v1/';
+const PZ_THEMES=[
+  {k:'hangingPiece',group:'Start here',name:'Free pieces',icon:'🎁',about:'A piece is left unprotected, or not protected enough. Spot it and take it.',goal:'Find the piece you can win for free.'},
+  {k:'mateIn1',group:'Start here',name:'Mate in 1',icon:'♚',about:'Checkmate the king in a single move.',goal:'Find the checkmate in one move.'},
+  {k:'fork',group:'Start here',name:'Forks',icon:'🍴',about:'One piece attacks two enemy pieces at once. They can only save one!',goal:'Attack two things at once, then grab the one they cannot save.'},
+  {k:'backRankMate',group:'Start here',name:'Back-rank mates',icon:'🧱',about:'The king is stuck behind its own pawns on the back row. A rook or queen delivers mate.',goal:'Checkmate the king on its back row.'},
+  {k:'pin',group:'Tactics',name:'Pins',icon:'📌',about:'A piece can\'t move, or shouldn\'t, because that would expose a more valuable piece behind it (often the king).',goal:'Use a pin to win material.'},
+  {k:'skewer',group:'Tactics',name:'Skewers',icon:'🍢',about:'Attack a valuable piece along a line; when it moves away, you win the piece behind it.',goal:'Skewer two pieces on the same line.'},
+  {k:'discoveredAttack',group:'Tactics',name:'Discovered attacks',icon:'🎭',about:'Move one piece out of the way to reveal an attack by another one behind it.',goal:'Uncover a hidden attack.'},
+  {k:'trappedPiece',group:'Tactics',name:'Trapped pieces',icon:'🪤',about:'An enemy piece has no safe squares left. Attack it and win it.',goal:'Trap and win a piece.'},
+  {k:'deflection',group:'Tactics',name:'Deflection',icon:'↗️',about:'Lure a defending piece away from the job it is doing.',goal:'Pull a defender away from its duty.'},
+  {k:'sacrifice',group:'Tactics',name:'Sacrifices',icon:'🔥',about:'Give up material on purpose to get something bigger back.',goal:'Find the sacrifice that pays off.'},
+  {k:'mateIn2',group:'Checkmates',name:'Mate in 2',icon:'♛',about:'Two moves to checkmate. The first move is often a check or a quiet trap.',goal:'Checkmate in 2 moves, whatever your opponent replies.'},
+  {k:'mateIn3',group:'Checkmates',name:'Mate in 3',icon:'♜',about:'Three-move checkmates. Look at every check first.',goal:'Checkmate in 3 moves, whatever your opponent replies.'},
+  {k:'promotion',group:'More skills',name:'Promotion',icon:'⬆️',about:'Push a pawn to the last row and turn it into a queen.',goal:'Promote a pawn, or make it unstoppable.'},
+  {k:'defensiveMove',group:'More skills',name:'Defend!',icon:'🛡️',about:'Something of yours is in danger. Find the only move that saves it, or keeps your advantage.',goal:'Find the move that defends.'},
+  {k:'endgame',group:'More skills',name:'Endgames',icon:'🏁',about:'Few pieces left. Precise moves win (or save) the game.',goal:'Find the best move in this endgame.'}];
+const PZ_BY=Object.fromEntries(PZ_THEMES.map(t=>[t.k,t]));
+const PZ_BANDS=[['easy','Easy','Beginner friendly: short and clear.'],['medium','Medium','For club players: a few moves deep.'],['hard','Hard','For experts: longer, trickier lines.']];
+const pzProg=(p=>p&&typeof p==='object'&&!Array.isArray(p)?p:{})(store.get('pzProg',{})); // puzzle id -> 1 solved first try, 2 solved with help
+const pzStreak=(p=>p&&typeof p==='object'?{now:Number(p.now)||0,best:Number(p.best)||0}:{now:0,best:0})(store.get('pzStreak',null)); // first-try solves in a row
+let pzLevel=store.get('pzLevel','easy'); if(!PZ_BANDS.some(b=>b[0]===pzLevel)) pzLevel='easy';
+const pzFiles=new Map();
+function pzFetch(name){ // one download per file; a failed download can be retried
+  if(!pzFiles.has(name)) pzFiles.set(name,fetch(PUZZLE_DATA+name+'.json').then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); }).catch(e=>{ pzFiles.delete(name); throw e; }));
+  return pzFiles.get(name);
+}
+const pzDone=id=>Object.prototype.hasOwnProperty.call(pzProg,id);
+const pzSolvedIn=(list)=>list.filter(r=>pzDone(r[0])).length;
+async function startThemePuzzle(theme,band,id){
+  let pack; try{ pack=await pzFetch(theme); }catch(e){ toast('Connect to the internet once to download these puzzles.',3200); return; }
+  const list=(pack.bands&&pack.bands[band])||[]; if(!list.length){ toast('No puzzles here yet.'); return; }
+  const row=(id&&list.find(r=>r[0]===id))||list.find(r=>!pzDone(r[0]))||list[(Math.random()*list.length)|0];
+  const s=sessions.puzzles; S.token++;
+  s.tp={theme,band,id:row[0],rating:row[3],line:row[2].split(' '),helped:false,list};
+  s.idx=-1; s.p=null; s.game=newGame(row[1]); s.eng.loadUci(row[1],[]); s.solved=false; s.view=null; s.over=null; s.checking=true; s.showHint=false;
+  s.side=s.eng.turn()?'w':'b'; // you play the side that is NOT to move: the opponent moves first
+  s.orientation=s.side; s.msg='Watch the opponent\'s move…'; s.msgType='';
+  S.hint=null; deselect();
+  if(S.tab!=='puzzles') switchTab('puzzles',true); else { renderLabels(); renderPieces({instant:true}); renderAll(); }
+  const tok=S.token; await new Promise(r=>setTimeout(r,750)); if(tok!==S.token) return;
+  if(!commitMove(s.tp.line[0],{session:s})){ s.checking=false; toast('That puzzle could not be loaded. Here is another.'); themeNext(s); }
+}
+async function themeAfter(s){
+  const t=s.tp, n=s.game.moves.length, tok=S.token;
+  const mine=(s.eng.turn()?'b':'w')!==s.side; // the side that just moved is me
+  if(!mine){ s.checking=false; if(n===1){ s.msg=`Your move: you are ${s.side==='w'?'White':'Black'}. ${PZ_BY[t.theme].goal}`; s.msgType=''; } renderAll(); return; }
+  const ok=s.game.moves[n-1]===t.line[n-1]||s.eng.status()==='checkmate'; // any checkmate counts
+  if(!ok){
+    t.helped=true; t.wrong=(t.wrong||0)+1; s.checking=true; s.msg=t.wrong>=2?'Not this one. Stuck? Tap Hint to see the move.':'Not this one. Try again.'; s.msgType='bad'; renderAll(); SFX.bad(); buzz([20,40,20]);
+    await new Promise(r=>setTimeout(r,900)); if(tok!==S.token) return;
+    s.game.moves.pop(); s.game.sans.pop(); s.eng.loadUci(s.game.start,s.game.moves); s.checking=false; renderPieces({ms:220}); renderAll(); return;
+  }
+  flash(nameSq(s.game.moves[n-1].slice(2,4)),'right');
+  if(n>=t.line.length||s.eng.status()==='checkmate'){
+    s.solved=true; s.checking=false;
+    const firstEver=!pzDone(t.id); // a retry never improves a result
+    if(firstEver) pzProg[t.id]=t.helped?2:1; store.set('pzProg',pzProg);
+    if(firstEver){ pzStreak.now=t.helped?0:pzStreak.now+1; pzStreak.best=Math.max(pzStreak.best,pzStreak.now); store.set('pzStreak',pzStreak); }
+    s.msg=t.helped?'Solved! ✓ Try the next one.':(pzStreak.now>=3&&firstEver?`Solved first try! ★ ${pzStreak.now} in a row 🔥`:'Solved first try! ★'); s.msgType='good'; renderAll(); setTimeout(()=>SFX.win(),300); return;
+  }
+  s.checking=true; s.msg='Correct! Keep going…'; s.msgType='good'; renderAll();
+  await new Promise(r=>setTimeout(r,600)); if(tok!==S.token) return;
+  if(!commitMove(t.line[n],{session:s})){ s.checking=false; s.solved=true; s.msg='Puzzle ended.'; renderAll(); }
+}
+function themeClue(s){ const t=s.tp, u=t.line[s.game.moves.length]; if(!u||s.solved) return; t.helped=true; flash(nameSq(u.slice(0,2)),'right'); s.msg='This piece makes the winning move.'; s.msgType=''; renderPanel(); }
+function themeNext(s){
+  const t=s.tp, list=t.list, i=list.findIndex(r=>r[0]===t.id);
+  const nxt=list.slice(i+1).find(r=>!pzDone(r[0]))||list.find(r=>!pzDone(r[0]))||list[(i+1)%list.length];
+  startThemePuzzle(t.theme,t.band,nxt[0]);
+}
+function pzRandom(){ const t=PZ_THEMES[(Math.random()*PZ_THEMES.length)|0]; startThemePuzzle(t.k,pzLevel); }
+function themePanelHTML(s){
+  const t=s.tp, th=PZ_BY[t.theme], band=PZ_BANDS.find(b=>b[0]===t.band), done=pzSolvedIn(t.list);
+  return `<div class="card"><h3>${th.icon} ${esc(th.name)} <span style="font-size:12px;color:var(--muted);font-family:Inter">${band[1]}${t.band==='easy'?'':` · rated ${Number(t.rating)||'?'}`}</span></h3><p>${esc(th.about)}</p><div class="feedback ${s.msgType}">${esc(s.msg)}</div><div class="pzbar" title="Solved in this set"><i style="width:${Math.round(done/t.list.length*100)}%"></i></div><p style="font-size:12px;color:var(--muted);margin-top:4px">${done} of ${t.list.length} solved in this set${pzStreak.now?` · 🔥 ${pzStreak.now} in a row`:''}${pzStreak.best>1?` · best ${pzStreak.best}`:''}</p></div>`
+   +`<div class="controls"><button class="btn" data-act="pzlist">${ICON.list}Themes</button><button class="btn" data-act="pzclue" ${s.solved||s.checking?'disabled':''}>Clue</button><button class="btn" data-act="hint" ${s.solved||s.checking?'disabled':''}>${ICON.bulb}Hint</button><button class="btn" data-act="pzretry">${ICON.retry}</button><button class="btn ${s.solved?'primary':''}" data-act="pznext">Next</button></div>`;
 }
 
 /* ================= learn: beginner lessons ================= */
@@ -2275,7 +2366,7 @@ function openReading(i){
   $('#sheet').onclick=e=>{ if(e.target.closest('#rdBack')) openReadings(); else if(e.target.closest('#rdNext')) openReading(i+1); };
 }
 // Read-only handle for automated tests.
-Object.defineProperty(window,'__tc',{value:{startReview,rvDone,get B3(){ return B3; },get S(){ return S; },enable3D,off3D,settings,OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
+Object.defineProperty(window,'__tc',{value:{get pzStreak(){ return pzStreak; },startThemePuzzle,PZ_THEMES,get pzProg(){ return pzProg; },startReview,rvDone,get B3(){ return B3; },get S(){ return S; },enable3D,off3D,settings,OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
 
 /* ================= family (online) ================= */
 /* Family games over Firebase Realtime Database.
@@ -2646,7 +2737,8 @@ function renderPanel(){
       h+=`<div class="controls"><button class="btn" data-act="oplist">${ICON.list}Openings</button><button class="btn" data-act="hint" ${s.done?'disabled':''}>${ICON.bulb}Hint</button><button class="btn" data-act="oprestart">${ICON.retry}Restart</button>${s.done?`<button class="btn primary" data-act="opplay">Play on</button>`:''}</div>`;
     }
   } else if(S.tab==='puzzles'){
-    if(s.idx<0){ const solved=Object.keys(puzSolved).length; h+=`<div class="card"><h3>Checkmate puzzles</h3><p>${PUZZLES.length} hand-picked mates, from one-movers to famous finishes. Solved ${solved} of ${PUZZLES.length}.</p></div><div class="controls"><button class="btn primary" data-act="pznext">Start solving</button><button class="btn" data-act="pzlist">${ICON.list}All puzzles</button></div>`; }
+    if(s.tp) h+=themePanelHTML(s);
+    else if(s.idx<0){ const nSolved=Object.keys(pzProg).length; h+=`<div class="card"><h3>Puzzles</h3><p>Train your tactics with real positions from real games, grouped by theme: forks, pins, checkmates and more. Pick Easy, Medium or Hard.${nSolved?` You've solved <b>${nSolved}</b> so far.`:''}</p></div><div class="controls"><button class="btn primary" data-act="pzlist">${ICON.list}Choose a theme</button><button class="btn" data-act="pzrandom">Surprise me</button></div>`; }
     else {
       const p=s.p;
       h+=`<div class="card"><h3>Mate in ${p.mate} · ${esc(p.title)}</h3><p>${s.showHint?esc(p.hint):'Stuck? Tap Clue for a hint, or Hint to see the move.'}</p><div class="feedback ${s.msgType}">${esc(s.msg)}</div></div>`;
@@ -2726,9 +2818,10 @@ $('#panel').addEventListener('click',e=>{
     case 'oprestart': startOpening(s.op); break;
     case 'opplay': { const moves=s.game.moves.slice(); const side=s.op.side; startPlay('cpu',side,3); const p=sessions.play; for(const u of moves){ const m=p.eng.fromUci(u); p.game.sans.push(p.eng.san(m)); p.eng.make(m); p.game.moves.push(u);} renderPieces({instant:true}); renderAll(); savePlay(); if((p.eng.turn()?'b':'w')!==p.human) cpuMove(); toast('Playing on against Oak'); break; }
     case 'pzlist': openPuzzles(); break;
-    case 'pzclue': s.showHint=true; renderPanel(); break;
-    case 'pzretry': startPuzzle(s.p); break;
-    case 'pznext': { const order=PUZ_ORDER; let i=s.idx<0?-1:order.indexOf(s.p); let nxt=order.find((p,k)=>k>i&&!puzSolved[p.i])||order[(i+1)%order.length]; startPuzzle(nxt); break; }
+    case 'pzclue': if(s.tp) themeClue(s); else { s.showHint=true; renderPanel(); } break;
+    case 'pzretry': if(s.tp) startThemePuzzle(s.tp.theme,s.tp.band,s.tp.id); else startPuzzle(s.p); break;
+    case 'pzrandom': pzRandom(); break;
+    case 'pznext': if(s.tp){ themeNext(s); break; } { const order=PUZ_ORDER; let i=s.idx<0?-1:order.indexOf(s.p); let nxt=order.find((p,k)=>k>i&&!puzSolved[p.i])||order[(i+1)%order.length]; startPuzzle(nxt); break; }
     case 'opinfo': openBookPage(openingEntry(s.game.moves.slice(0,s.view===null?undefined:s.view))); break;
     case 'lslist': openLessons(); break;
     case 'fglist': openFamous(); break;
@@ -2875,6 +2968,7 @@ function searchIndex(){
   LESSONS.forEach(l=>out.push({kind:'Lesson',icon:'🎓',title:l.title,sub:l.about,score:q=>scoreText([[l.title,5],[l.about,1.5],['lesson beginner learn how to move',.5]],q),open:()=>{ closeSheet(); startLesson(l); }}));
   FAMOUS.forEach(g=>out.push({kind:'Famous game',icon:'🏆',title:g.title,sub:`${g.white} vs ${g.black} · ${g.where}`,score:q=>scoreText([[g.title,5],[g.white+' '+g.black,4],[g.where,2],[g.about,1],['famous game master',.5]],q),open:()=>{ closeSheet(); startFamous(g); }}));
   READINGS.forEach((r,i)=>out.push({kind:'Reading',icon:'📄',title:r.title,sub:`${r.mins} min read`,score:q=>scoreText([[r.title,5],[r.body.replace(/<[^>]+>/g,' '),1],['reading article',.5]],q),open:()=>openReading(i)}));
+  PZ_THEMES.forEach(t=>out.push({kind:'Puzzle theme',icon:t.icon,title:t.name+' puzzles',sub:t.about,score:q=>scoreText([[t.name,5],[t.about,1.5],['puzzle tactic theme '+t.group,.6]],q),open:()=>{ closeSheet(); startThemePuzzle(t.k,pzLevel); }}));
   PUZZLES.forEach(p=>out.push({kind:'Puzzle',icon:'🧩',title:p.title,sub:`Mate in ${p.mate}`,score:q=>scoreText([[p.title,5],[p.hint,1.5],['puzzle mate in '+p.mate+' tactic',.6]],q),open:()=>{ closeSheet(); startPuzzle(p); }}));
   const go=(tab,fn)=>()=>{ closeSheet(); switchTab(tab); if(fn) setTimeout(fn,50); };
   [['Play the computer','Six levels from beginner to strong','play computer cpu bot level',go('play')],
@@ -2906,9 +3000,30 @@ function openLessons(){
   $('#sheet').onclick=e=>{ const b=e.target.closest('[data-ls]'); if(b){ closeSheet(); $('#sheet').onclick=null; startLesson(LESSONS[+b.dataset.ls]); } };
 }
 function openPuzzles(){
-  const items=PUZ_ORDER.map(p=>`<button class="item" data-pz="${p.i}"><div class="t"><b>${esc(p.title)}</b><span>Mate in ${p.mate}</span></div>${puzSolved[p.i]?'<span class="tag good">★ Solved</span>':'<span class="tag">Unsolved</span>'}</button>`).join('');
-  openSheet(`<h2>Puzzles</h2><div class="list">${items}</div>`,'puzzles');
-  $('#sheet').onclick=e=>{ const b=e.target.closest('[data-pz]'); if(b){ closeSheet(); $('#sheet').onclick=null; startPuzzle(PUZZLES[+b.dataset.pz]); } };
+  const draw=idx=>{
+    const lv=`<div class="pzlv">${PZ_BANDS.map(([k,n])=>`<button data-lv="${k}" class="${pzLevel===k?'on':''}">${n}</button>`).join('')}</div><p class="note">${PZ_BANDS.find(b=>b[0]===pzLevel)[2]}</p>`;
+    let groups='', g='';
+    for(const t of PZ_THEMES){
+      if(t.group!==g){ g=t.group; groups+=`<h4>${esc(g)}</h4>`; }
+      const total=idx?Number((idx.themes[t.k]||{})[pzLevel])||0:0;
+      groups+=`<button class="item" data-th="${t.k}"><div class="t"><b>${t.icon} ${esc(t.name)}</b><span>${esc(t.about)}</span></div>${total?`<span class="tag${pzDoneCount[t.k+'|'+pzLevel]>=total?' good':''}">${pzDoneCount[t.k+'|'+pzLevel]||0}/${total}</span>`:''}</button>`;
+    }
+    return `<h2>Puzzles</h2>${lv}<div class="list">${groups}</div>
+      <h4>Classic checkmates</h4><div class="list">${classic}</div>
+      <p class="note" style="margin-top:12px">Themed puzzles come from the free Lichess puzzle database (public domain). Thank you, Lichess!</p>`;
+  };
+  const pzDoneCount={};
+  const countDone=async()=>{ for(const t of PZ_THEMES){ if(!pzFiles.has(t.k)) continue; try{ const p=await pzFiles.get(t.k); for(const [b] of PZ_BANDS) pzDoneCount[t.k+'|'+b]=pzSolvedIn(p.bands[b]||[]); }catch(e){} } };
+  const classic=PUZ_ORDER.map(p=>`<button class="item" data-pz="${p.i}"><div class="t"><b>${esc(p.title)}</b><span>Mate in ${p.mate}</span></div>${puzSolved[p.i]?'<span class="tag good">★ Solved</span>':'<span class="tag">Unsolved</span>'}</button>`).join('');
+  let idx=null; const sh=()=>$('#sheet');
+  const paint=()=>{ if(sheetKind!=='puzzles') return; const y=sh().scrollTop; openSheet(draw(idx),'puzzles'); sh().scrollTop=y; bind(); };
+  const bind=()=>{ sh().onclick=e=>{
+    const lv=e.target.closest('[data-lv]'); if(lv){ pzLevel=lv.dataset.lv; store.set('pzLevel',pzLevel); paint(); return; }
+    const th=e.target.closest('[data-th]'); if(th){ closeSheet(); startThemePuzzle(th.dataset.th,pzLevel); return; }
+    const b=e.target.closest('[data-pz]'); if(b){ closeSheet(); startPuzzle(PUZZLES[+b.dataset.pz]); }
+  }; };
+  openSheet(draw(null),'puzzles'); bind();
+  pzFetch('index').then(async i=>{ idx=i; await countDone(); paint(); }).catch(()=>{});
 }
 function openSettings(){
   const tg=(k,label)=>`<div class="toggle"><span>${label}</span><button class="sw ${settings[k]?'on':''}" data-set="${k}" aria-label="${label}"></button></div>`;

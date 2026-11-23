@@ -1,0 +1,82 @@
+{
+ "version": "v1",
+ "source": "Lichess puzzle database (CC0)",
+ "built": "2026-11-23",
+ "themes": {
+  "mateIn1": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  },
+  "hangingPiece": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  },
+  "fork": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  },
+  "pin": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  },
+  "skewer": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  },
+  "discoveredAttack": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  },
+  "backRankMate": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 39
+  },
+  "mateIn2": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  },
+  "mateIn3": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  },
+  "promotion": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  },
+  "trappedPiece": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  },
+  "deflection": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  },
+  "sacrifice": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  },
+  "defensiveMove": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  },
+  "endgame": {
+   "easy": 45,
+   "medium": 45,
+   "hard": 45
+  }
+ }
+}
