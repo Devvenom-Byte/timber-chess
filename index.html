@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://timber-chess-default-rtdb.europe-west1.firebasedatabase.app https://*.europe-west1.firebasedatabase.app wss://*.europe-west1.firebasedatabase.app; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="A wooden chess set for your phone. Play the computer, learn openings, solve puzzles, or invite a friend with a link. No ads.">
 <meta name="theme-color" content="#15100c">
 <link rel="manifest" href="manifest.webmanifest">
@@ -16,9 +18,12 @@
 <meta property="og:description" content="Come and play chess with me. No ads, no sign-up.">
 <meta property="og:image" content="icon-512.png">
 <title>Timber Chess</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+/* Fonts are bundled with the app (fonts/), so nothing is loaded from Google. */
+@font-face{font-family:Fraunces;font-style:normal;font-weight:100 900;font-display:swap;src:url(fonts/fraunces.woff2) format("woff2")}
+@font-face{font-family:Inter;font-style:normal;font-weight:100 900;font-display:swap;src:url(fonts/inter.woff2) format("woff2")}
+html{touch-action:manipulation}
 :root{
   --bg:#15100c; --panel:#211812; --panel2:#2a1f17; --line:rgba(255,228,190,.09);
   --text:#f4e8d6; --muted:#b5a189; --accent:#e3a55a; --accent2:#f2c27f; --good:#86b86b; --bad:#de6a55;
@@ -207,6 +212,10 @@ nav.tabs button.on{color:var(--accent2);background:rgba(227,165,90,.1)}
 .article .tip{margin-top:14px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--accent2) 12%,transparent);border-left:3px solid var(--accent2)}
 .learnhub{margin-top:10px}
 .learnhub .item .t span{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35}
+.segrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.seg{display:flex;background:var(--panel);border-radius:10px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;padding:7px 10px;border-radius:8px}
+.seg button.on{background:var(--accent);color:#24170c;font-weight:600}
 .psets{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .psets button{border-radius:12px;padding:6px 4px 7px;background:var(--panel);border:2px solid transparent;font-size:11.5px;line-height:1.2;color:var(--muted)}
 .psets button.on{border-color:var(--accent);color:var(--text)}
@@ -265,6 +274,8 @@ nav.tabs button.on{color:var(--accent2);background:rgba(227,165,90,.1)}
 <div id="toast"></div>
 
 <script>
+// Refuse to run inside another site's frame (protects against "clickjacking").
+if(window.top!==window.self){ try{ window.top.location.replace(window.self.location.href); }catch(e){} document.documentElement.innerHTML='<body style="background:#15100c;color:#f4e8d6;font:16px sans-serif;padding:24px">Open Timber Chess directly at its own address.</body>'; throw new Error('framed'); }
 function EngineFactory(){
   'use strict';
   const P=1,N=2,B=3,R=4,Q=5,K=6;
@@ -1179,7 +1190,7 @@ const store={
   get(k,d){ try{ const v=localStorage.getItem('timber.'+k); return v==null?d:JSON.parse(v);}catch(e){return d;} },
   set(k,v){ try{ localStorage.setItem('timber.'+k,JSON.stringify(v)); }catch(e){} }
 };
-const settings=Object.assign({sound:true,haptics:true,dots:true,last:true,coords:true,autoQueen:false,theme:'walnut',pieces:'wood'},store.get('settings',{}));
+const settings=Object.assign({sounds:'auto',sound:true,haptics:true,dots:true,last:true,coords:true,autoQueen:false,theme:'walnut',pieces:'wood'},store.get('settings',{}));
 function saveSettings(){ store.set('settings',settings); }
 
 /* ================= wood art ================= */
@@ -1310,8 +1321,27 @@ function ac(){
   if(!noiseBuf){ const n=Math.floor(AC.sampleRate*0.12); noiseBuf=AC.createBuffer(1,n,AC.sampleRate); const d=noiseBuf.getChannelData(0); for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/n,3); }
   return AC;
 }
+// Which material the pieces sound like: follows the piece set (marble/jade sets click like stone) unless chosen.
+function soundMat(){ if(settings.sounds==='wood'||settings.sounds==='stone') return settings.sounds; const p=PIECE_SETS[settings.pieces]; return p&&p.tex==='stone'?'stone':'wood'; }
+// Stone: a bright, hard click with a short glassy ring and almost no low thump.
+function clack(gain,pitch,delay){
+  const c=ac(); if(!c) return; const t=c.currentTime+delay;
+  const src=c.createBufferSource(); src.buffer=noiseBuf;
+  const hp=c.createBiquadFilter(); hp.type='bandpass'; hp.frequency.value=3400*pitch; hp.Q.value=4.5;
+  const g=c.createGain(); g.gain.setValueAtTime(gain*1.7,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.035);
+  src.connect(hp).connect(g).connect(c.destination); src.start(t); src.stop(t+0.06);
+  for(const [f,a,len] of [[1870,.32,.16],[3010,.2,.11],[4630,.1,.07]]){
+    const o=c.createOscillator(); o.type='sine'; o.frequency.value=f*pitch;
+    const og=c.createGain(); og.gain.setValueAtTime(gain*a,t); og.gain.exponentialRampToValueAtTime(0.0008,t+len);
+    o.connect(og).connect(c.destination); o.start(t); o.stop(t+len+0.02);
+  }
+  const o=c.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(420*pitch,t); o.frequency.exponentialRampToValueAtTime(260*pitch,t+0.04);
+  const og=c.createGain(); og.gain.setValueAtTime(gain*0.22,t); og.gain.exponentialRampToValueAtTime(0.001,t+0.05);
+  o.connect(og).connect(c.destination); o.start(t); o.stop(t+0.07);
+}
 function knock(gain=.6,pitch=1,delay=0){
   if(!settings.sound) return; const c=ac(); if(!c) return;
+  if(soundMat()==='stone'){ clack(gain,pitch,delay); return; }
   const t=c.currentTime+delay;
   const src=c.createBufferSource(); src.buffer=noiseBuf;
   const bp=c.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1250*pitch; bp.Q.value=2.2;
@@ -2171,6 +2201,8 @@ Object.defineProperty(window,'__tc',{value:{OPENING_BOOK,BOOK_BAD,openingEntry,o
    offline, changes wait in the database and the phone catches up when it comes back, so games can't get
    stuck and the inviter doesn't need the app open. The database's security rules (Firebase console)
    block listing games, changing moves, stealing seats, un-resigning and any non-chess data. */
+// Unpredictable ids from the browser's secure random generator.
+function rndId(n){ const a='abcdefghijklmnopqrstuvwxyz0123456789', r=new Uint32Array(n); crypto.getRandomValues(r); let s=''; for(const x of r) s+=a[x%36]; return s; }
 const FB_DB='https://timber-chess-default-rtdb.europe-west1.firebasedatabase.app';
 const Fam={
   state:'ready', myId:null, myName:'', names:Object.create(null), avatars:Object.create(null), oppOnline:false, lastReact:Object.create(null),
@@ -2185,7 +2217,7 @@ const Fam={
   },
   init(){
     this.myId=store.get('cid',null);
-    if(!this.myId){ this.myId='c'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); store.set('cid',this.myId); }
+    if(!this.myId){ this.myId='c'+rndId(12); store.set('cid',this.myId); }
     this.myName=store.get('myName','');
     this.names[this.myId]=this.myName;
     // Games saved by the old peer-to-peer version can't continue (they were never stored online).
@@ -2234,7 +2266,7 @@ const Fam={
   player(c){ const s=sessions.family; return c==='w'?s.white:s.black; },
   link(gid){ return location.origin+location.pathname+'?g='+gid; },
   lobbyPresence(){},
-  newGid(){ const a='abcdefghjkmnpqrstuvwxyz23456789'; let s=''; for(let i=0;i<8;i++) s+=a[(Math.random()*a.length)|0]; return s; },
+  newGid(){ const a='abcdefghjkmnpqrstuvwxyz23456789', r=new Uint32Array(8); crypto.getRandomValues(r); let s=''; for(const x of r) s+=a[x%a.length]; return s; },
   create(colorPref){
     const me=this.myId; const c=colorPref==='r'?(Math.random()<.5?'w':'b'):colorPref;
     const g={gid:this.newGid(),white:c==='w'?me:null,black:c==='b'?me:null,creator:me,moves:[],status:'open',resigned:null,drawOffers:{w:null,b:null},created:Date.now()};
@@ -2427,7 +2459,7 @@ const Fam={
   forget(gid){ const all=this.games(); delete all[gid]; store.set('peerGames',all); }
 };
 function askName(after){
-  openSheet(`<h2>What's your name?</h2><p class="note">So your opponent knows who they're playing.</p>
+  openSheet(`<h2>What's your name?</h2><p class="note">So your opponent knows who they're playing. A nickname or first name is best; anyone with your game link can see it.</p>
   <input id="nameIn" maxlength="20" autocomplete="nickname" placeholder="e.g. Alex" value="${esc(Fam.myName)}" style="width:100%;margin-top:12px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;font-size:16px">
   <div class="row"><button class="btn primary" id="nameGo">Save</button></div>`,'name');
   const go=()=>{ const v=$('#nameIn').value.trim().slice(0,20)||'Player'; Fam.myName=v; Fam.names[Fam.myId]=v; store.set('myName',v); closeSheet(); Fam.broadcast(); renderAll(); if(after) after(); };
@@ -2793,11 +2825,12 @@ function openSettings(){
   openSheet(`<h2>Settings</h2>
     <h4>Board wood</h4><div class="themes">${Object.entries(THEMES).map(([k,t])=>`<button data-theme="${k}" class="${settings.theme===k?'on':''}"><img src="${boardThumb(k)}" alt="">${t.name}</button>`).join('')}</div>
     <h4>Pieces</h4><div class="psets">${Object.entries(PIECE_SETS).map(([k,p])=>`<button data-pset="${k}" class="${settings.pieces===k?'on':''}"><span class="pv"><img src="${psetThumb(k,'w')}" alt=""><img src="${psetThumb(k,'b')}" alt=""></span>${p.name}</button>`).join('')}</div>
-    <h4>Feel</h4>${tg('sound','Wood sounds')}${tg('haptics','Vibration')}${tg('dots','Show legal moves')}${tg('last','Highlight last move')}${tg('coords','Board coordinates')}${tg('autoQueen','Always promote to queen')}
+    <h4>Feel</h4>${tg('sound','Sounds')}<div class="segrow"><span>Sound of the pieces</span><div class="seg" id="sndSeg">${[['auto','Match pieces'],['wood','Wood'],['stone','Marble']].map(([k,t])=>`<button data-snd="${k}" class="${settings.sounds===k?'on':''}">${t}</button>`).join('')}</div></div>${tg('haptics','Vibration')}${tg('dots','Show legal moves')}${tg('last','Highlight last move')}${tg('coords','Board coordinates')}${tg('autoQueen','Always promote to queen')}
     <h4>This game</h4><div class="row" style="margin-top:0"><button class="btn" id="copyPgn">Copy moves (PGN)</button></div>
-    <p class="note" style="margin-top:16px">No ads and no tracking. Your settings and progress stay on this device.</p>`,'settings');
+    <p class="note" style="margin-top:16px">No ads, no tracking and no accounts. Your settings and progress stay on this device. <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--accent2)">Privacy policy</a></p>`,'settings');
   $('#sheet').onclick=e=>{
     const sw=e.target.closest('[data-set]'); if(sw){ const k=sw.dataset.set; settings[k]=!settings[k]; sw.classList.toggle('on',settings[k]); saveSettings(); renderLabels(); renderHL(); if(k==='sound'&&settings.sound) SFX.move(); return; }
+    const sd=e.target.closest('[data-snd]'); if(sd){ settings.sounds=sd.dataset.snd; saveSettings(); document.querySelectorAll('[data-snd]').forEach(b=>b.classList.toggle('on',b===sd)); if(!settings.sound){ settings.sound=true; saveSettings(); const t=document.querySelector('[data-set="sound"]'); if(t) t.classList.add('on'); } SFX.move(); setTimeout(()=>SFX.capture(),260); return; }
     const ps=e.target.closest('[data-pset]'); if(ps){ settings.pieces=ps.dataset.pset; saveSettings(); applyPieces(); document.querySelectorAll('[data-pset]').forEach(b=>b.classList.toggle('on',b===ps)); SFX.move(); return; }
     const th=e.target.closest('[data-theme]'); if(th){ settings.theme=th.dataset.theme; saveSettings(); applyTheme(); document.querySelectorAll('[data-theme]').forEach(b=>b.classList.toggle('on',b===th)); return; }
     if(e.target.id==='copyPgn'){ copyPgn(); }
