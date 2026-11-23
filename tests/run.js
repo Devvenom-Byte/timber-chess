@@ -11,7 +11,7 @@ const path = require('path'), fs = require('fs');
 
 const LIVE_URL = 'https://devvenom-byte.github.io/timber-chess/';
 const PORT = 8766;
-const APP = ['features', 'sec', 'book', 'famous', 'review', 'themes', 'promo', 'board3d'];
+const APP = ['features', 'sec', 'book', 'famous', 'review', 'themes', 'endgames', 'promo', 'board3d'];
 const FAMILY = ['join', 'stuck', 'offline', 'rules']; // talk to the real Firebase database
 const EXTRA_ARGS = { board3d: ['390', '844', 'phone'] };
 

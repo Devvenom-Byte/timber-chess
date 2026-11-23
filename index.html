@@ -83,6 +83,7 @@ main{flex:1;display:flex;flex-direction:column;align-items:center;min-height:0;o
 .hl.wrong{background:rgba(222,80,60,.5);animation:fade 1s forwards}
 .hl.right{background:rgba(120,190,90,.5);animation:fade 1.2s forwards}
 .hl.goal{background:radial-gradient(circle,rgba(255,200,90,.85) 0%,rgba(255,200,90,.45) 40%,rgba(255,200,90,.12) 72%);box-shadow:inset 0 0 0 4px rgba(255,205,110,.95);animation:goalpulse 1.6s ease-in-out infinite}
+.hl.zone{background:rgba(110,170,255,.24);box-shadow:inset 0 0 0 1px rgba(150,195,255,.35)}
 @keyframes goalpulse{50%{opacity:.6}}
 @keyframes fade{to{opacity:0}}
 .dot{position:absolute;width:var(--sq);height:var(--sq);display:grid;place-items:center}
@@ -235,6 +236,11 @@ nav.tabs button.on{color:var(--accent2);background:rgba(227,165,90,.1)}
 .pzlv+.note{margin:2px 0 8px}
 .pzbar{height:4px;border-radius:2px;background:rgba(255,255,255,.08);margin-top:5px;overflow:hidden}.pzbar i{display:block;height:100%;background:var(--good)}
 .hl.right{background:rgba(120,200,100,.45);animation:fade 1s forwards}
+.egsteps{margin:8px 0 0;padding-left:20px;font-size:14px;line-height:1.45}.egsteps li{margin:3px 0}
+.egmeta{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--muted);margin-top:8px}.egmeta b{color:var(--text)}
+.stars{color:#e8c15a;letter-spacing:1px}.stars i{font-style:normal;color:rgba(255,255,255,.18)}
+.lvtag{font-size:11px;font-weight:700;padding:1px 7px;border-radius:8px;margin-left:6px;vertical-align:2px;background:rgba(255,255,255,.08);color:var(--muted)}
+details.how summary{cursor:pointer;font-weight:600;margin-top:8px;font-size:14px}
 .segrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .seg{display:flex;background:var(--panel);border-radius:10px;padding:3px;gap:2px}
 .seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;padding:7px 10px;border-radius:8px}
@@ -593,7 +599,8 @@ function EngineFactory(){
       const wr=wk>>4, wf=wk&7;
       const cd=Math.max(3-wr,wr-4)+Math.max(3-wf,wf-4);
       const kd=Math.abs(wr-(sk>>4))+Math.abs(wf-(sk&7));
-      const bonus=cd*12+(14-kd)*5;
+      const bare=(weak===0?wMat:bMat)===0; // lone king: drive it to the edge and keep the kings close
+      const bonus=bare?cd*40+(14-kd)*16:cd*12+(14-kd)*5;
       sc+=strong===0?bonus:-bonus;
     }
     sc+=turn?-10:10;
@@ -1419,15 +1426,93 @@ function bookMove(moves){
   return cands.length?cands[(Math.random()*cands.length)|0]:null;
 }
 
+/* ================= endgame tablebase ================= */
+// Perfect play for king + rook or king + queen against a lone king. Every position (about 260,000) is solved
+// backwards from checkmate the first time it is needed (a quarter of a second, in the engine worker).
+// Checked against theory: the longest rook mate is 16 moves and the longest queen mate is 10.
+// Endgame tablebase for king + rook or king + queen (White) against a lone king, by retrograde iteration.
+// Squares: 0..63 = rank*8 + file. Position index = wk<<12 | piece<<6 | bk.
+function TablebaseFactory(){
+  const KM=[]; for(let s=0;s<64;s++){ const r=s>>3,f=s&7,a=[]; for(let dr=-1;dr<=1;dr++) for(let df=-1;df<=1;df++){ if(!dr&&!df) continue; const R=r+dr,F=f+df; if(R>=0&&R<8&&F>=0&&F<8) a.push(R*8+F); } KM.push(a); }
+  const adj=(a,b)=>a!==b&&Math.abs((a>>3)-(b>>3))<=1&&Math.abs((a&7)-(b&7))<=1;
+  const DIRS={r:[[1,0],[-1,0],[0,1],[0,-1]],q:[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]};
+  const UNK=-1, DRAW=-2, tables={};
+  // does the piece on x attack square t? Only the white king can block (the black king is the one moving).
+  function attacks(p,x,t,wk){
+    const xr=x>>3,xf=x&7,tr=t>>3,tf=t&7, dr=Math.sign(tr-xr), df=Math.sign(tf-xf);
+    if(x===t) return false;
+    if(!(xr===tr||xf===tf||(p==='q'&&Math.abs(tr-xr)===Math.abs(tf-xf)))) return false;
+    for(let r=xr+dr,f=xf+df;r!==tr||f!==tf;r+=dr,f+=df) if(r*8+f===wk) return false;
+    return true;
+  }
+  function pieceMoves(p,x,wk,bk){ const out=[]; for(const [dr,df] of DIRS[p]){ for(let r=(x>>3)+dr,f=(x&7)+df;r>=0&&r<8&&f>=0&&f<8;r+=dr,f+=df){ const t=r*8+f; if(t===wk||t===bk) break; out.push(t); } } return out; }
+  function blackMoves(p,wk,x,bk){ const out=[]; for(const t of KM[bk]){ if(t===wk||adj(t,wk)) continue; if(t!==x&&attacks(p,x,t,wk)) continue; out.push(t); } return out; }
+  function build(p){
+    const N=1<<18, W=new Int8Array(N).fill(UNK), Bv=new Int8Array(N).fill(UNK), legal=new Uint8Array(N); // bit1: legal B, bit2: legal W
+    for(let wk=0;wk<64;wk++) for(let x=0;x<64;x++) for(let bk=0;bk<64;bk++){
+      if(wk===x||wk===bk||x===bk||adj(wk,bk)) continue;
+      const i=(wk<<12)|(x<<6)|bk, chk=attacks(p,x,bk,wk);
+      legal[i]|=1; if(!chk) legal[i]|=2;
+      const bm=blackMoves(p,wk,x,bk);
+      if(!bm.length) Bv[i]=chk?0:DRAW; else if(bm.includes(x)) Bv[i]=DRAW; // stalemate / the piece can be taken: draw
+    }
+    for(let n=1;n<64;n++){
+      let changed=false;
+      for(let i=0;i<N;i++){ if(!(legal[i]&2)||W[i]!==UNK) continue;
+        const wk=i>>12,x=(i>>6)&63,bk=i&63; let ok=false;
+        for(const t of KM[wk]){ if(t===x||t===bk||adj(t,bk)) continue; if(Bv[(t<<12)|(x<<6)|bk]===n-1){ ok=true; break; } }
+        if(!ok) for(const t of pieceMoves(p,x,wk,bk)){ if(Bv[(wk<<12)|(t<<6)|bk]===n-1){ ok=true; break; } }
+        if(ok){ W[i]=n; changed=true; } }
+      for(let i=0;i<N;i++){ if(!(legal[i]&1)||Bv[i]!==UNK) continue;
+        const wk=i>>12,x=(i>>6)&63,bk=i&63; let mx=0, done=true;
+        for(const t of blackMoves(p,wk,x,bk)){ const v=W[(wk<<12)|(x<<6)|t]; if(v<0){ done=false; break; } if(v>mx) mx=v; }
+        if(done){ Bv[i]=mx; changed=true; } }
+      if(!changed) break;
+    }
+    return {W,Bv};
+  }
+  const name=s=>'abcdefgh'[s&7]+(1+(s>>3));
+  // pos: {p:'r'|'q', wk, x, bk, stm:'w'|'b'} -> {move: uci, dtm: moves to mate (white's moves), or null when drawn}
+  function best({p,wk,x,bk,stm}){
+    const T=tables[p]||(tables[p]=build(p));
+    if(stm==='w'){ let bestT=null,bestV=99;
+      for(const t of KM[wk]){ if(t===x||t===bk||adj(t,bk)) continue; const v=T.Bv[(t<<12)|(x<<6)|bk]; if(v>=0&&v<bestV){ bestV=v; bestT=name(wk)+name(t); } }
+      for(const t of pieceMoves(p,x,wk,bk)){ const v=T.Bv[(wk<<12)|(t<<6)|bk]; if(v>=0&&v<bestV){ bestV=v; bestT=name(x)+name(t); } }
+      return bestT?{move:bestT,dtm:bestV+1}:null; }
+    let bestT=null,bestV=-1;
+    for(const t of blackMoves(p,wk,x,bk)){ if(t===x) return {move:name(bk)+name(t),dtm:null}; const v=T.W[(wk<<12)|(x<<6)|t]; if(v>bestV){ bestV=v; bestT=name(bk)+name(t); } }
+    return bestT?{move:bestT,dtm:bestV}:null;
+  }
+  function dtm({p,wk,x,bk,stm}){ const T=tables[p]||(tables[p]=build(p)); const v=(stm==='w'?T.W:T.Bv)[(wk<<12)|(x<<6)|bk]; return v>=0?v:null; }
+  return {best,dtm,_tables:()=>tables};
+}
+// The position as the tablebase sees it (the side with the extra piece mapped to White), or null.
+function tbProbe(eng){
+  const b=eng.board(), W=[], Bl=[];
+  for(let i=0;i<64;i++){ const p=b[i]; if(p) (p===p.toUpperCase()?W:Bl).push([p.toLowerCase(),i]); }
+  let strong, weak; if(W.length===2&&Bl.length===1){ strong=W; weak=Bl; } else if(Bl.length===2&&W.length===1){ strong=Bl; weak=W; } else return null;
+  const flip=strong===Bl, m=i=>flip?i^56:i, k=strong.find(q=>q[0]==='k'), x=strong.find(q=>q[0]!=='k');
+  if(!k||!x||(x[0]!=='r'&&x[0]!=='q')) return null;
+  const stm=eng.turn()?'b':'w';
+  return {pos:{p:x[0],wk:m(k[1]),x:m(x[1]),bk:m(weak[0][1]),stm:flip?(stm==='w'?'b':'w'):stm},flip};
+}
+
 /* ================= engine worker ================= */
-let worker=null, wid=0; const pending=new Map(); let fallbackEng=null;
+let worker=null, wid=0; const pending=new Map(); let fallbackEng=null, fallbackTB=null;
 try{
-  const src=EngineFactory.toString()+';const E=EngineFactory();onmessage=function(e){var d=e.data;E.loadUci(d.start,d.moves);var r=E.think(d.opts);postMessage({id:d.id,r:r});};';
+  const src=EngineFactory.toString()+';'+TablebaseFactory.toString()+';const E=EngineFactory(),TB=TablebaseFactory();onmessage=function(e){var d=e.data;if(d.tb){postMessage({id:d.id,r:TB.best(d.tb)});return;}E.loadUci(d.start,d.moves);var r=E.think(d.opts);postMessage({id:d.id,r:r});};';
   worker=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
   worker.onmessage=e=>{ const p=pending.get(e.data.id); if(p){ pending.delete(e.data.id); p.resolve(e.data.r); } };
   worker.onerror=()=>{ worker=null; for(const [id,p] of pending){ pending.delete(id); runLocal(p.job).then(p.resolve); } };
 }catch(e){ worker=null; }
-function runLocal(job){ return new Promise(res=>setTimeout(()=>{ if(!fallbackEng) fallbackEng=EngineFactory(); fallbackEng.loadUci(job.start,job.moves); res(fallbackEng.think(job.opts)); },30)); }
+function runLocal(job){ return new Promise(res=>setTimeout(()=>{ if(job.tb){ if(!fallbackTB) fallbackTB=TablebaseFactory(); return res(fallbackTB.best(job.tb)); } if(!fallbackEng) fallbackEng=EngineFactory(); fallbackEng.loadUci(job.start,job.moves); res(fallbackEng.think(job.opts)); },30)); }
+// Perfect move for king + rook/queen vs king, or null if the position is not one of those.
+function askTablebase(eng){
+  const pr=tbProbe(eng); if(!pr) return Promise.resolve(null);
+  const job={tb:pr.pos}, fix=r=>r&&{move:pr.flip?r.move.replace(/[1-8]/g,d=>9-d):r.move,dtm:r.dtm};
+  if(!worker) return runLocal(job).then(fix);
+  return new Promise(resolve=>{ const id=++wid; pending.set(id,{resolve:r=>resolve(fix(r)),job}); worker.postMessage({id,...job}); });
+}
 function askEngine(start,moves,opts){
   const job={start,moves:moves.slice(),opts};
   if(!worker) return runLocal(job);
@@ -1472,7 +1557,7 @@ function humanCanMove(color){
     case 'play': return s.kind==='local'||color===s.human;
     case 'openings': return s.op&&!s.done&&color===s.op.side;
     case 'puzzles': return (s.idx>=0||!!s.tp)&&!s.solved&&!s.checking&&color===s.side;
-    case 'learn': if(s.fg) return s.awaitGuess&&!s.checking&&color===(s.game.moves.length%2?'b':'w'); return !!s.les&&!s.done&&!s.checking&&color==='w';
+    case 'learn': if(s.eg) return !s.done&&!s.checking&&color===s.eg.side; if(s.fg) return s.awaitGuess&&!s.checking&&color===(s.game.moves.length%2?'b':'w'); return !!s.les&&!s.done&&!s.checking&&color==='w';
     case 'family': return Fam.canIMove(color);
   }
   return false;
@@ -1555,6 +1640,7 @@ function renderHL(){
   const s=cur(); const {last,eng}=displayed();
   if(B3){ const live=s.view===null, marks=S.flashes.map(f=>({sq:f.s,color:f.cls==='wrong'?'red':'green'}));
     if(S.tab==='learn'&&s.les&&!s.done&&!s.checking){ const st=learnStep(s); if(st&&st.goal.to) for(const t of st.goal.to) marks.push({sq:nameSq(t),color:'blue'}); }
+    for(const t of egMarks(s)) marks.push({sq:nameSq(t),color:'blue'});
     let check=null; if(eng.inCheck()){ const k=eng.kingSquare(); check=(k>>4)*8+(k&7); }
     B3.setHighlights({lastMove:last&&(settings.last||S.tab==='puzzles')?[last.slice(0,2),last.slice(2,4)]:null, selected:live?S.selected:-1, targets:settings.dots&&live?S.targets:[], check, hint:arrowMove()?[arrowMove().slice(0,2),arrowMove().slice(2,4)]:null, marks});
     return; }
@@ -1566,6 +1652,7 @@ function renderHL(){
   if(D.hover>=0) put(D.hover,'hover');
   for(const f of S.flashes) put(f.s,f.cls);
   if(S.tab==='learn'&&s.les&&!s.done&&!s.checking){ const st=learnStep(s); if(st&&st.goal.to) for(const t of st.goal.to) put(nameSq(t),'goal'); }
+  for(const t of egMarks(s)) put(nameSq(t),'zone');
   hlLayer.innerHTML=h;
   let d='';
   if(settings.dots&&S.selected>=0) for(const [t] of S.targets){ const [x,y]=sqXY(t); const occ=displayed().board[t]; d+=`<div class="dot${occ?' cap':''}" style="transform:translate(${x}px,${y}px)"></div>`; }
@@ -1840,11 +1927,11 @@ function afterMove(s){
   }
   if(s===sessions.openings){ openingsAfter(s); return; }
   if(s===sessions.puzzles){ puzzleAfter(s); return; }
-  if(s===sessions.learn){ if(s.fg) fgAfter(s); else learnAfter(s); return; }
+  if(s===sessions.learn){ if(s.eg) egAfter(s); else if(s.fg) fgAfter(s); else learnAfter(s); return; }
   if(s===sessions.family){ Fam.afterLocalMove(); return; }
 }
 async function cpuMove(){
-  const s=sessions.play; const tok=++S.token; S.thinking=true; renderStrips(); renderPanel();
+  const s=sessions.play; const tok=++S.token; S.cpuTok=tok; S.thinking=true; renderStrips(); renderPanel();
   const t0=Date.now();
   let u=null;
   if(s.game.start===START&&s.game.moves.length<14&&s.level>=1&&Math.random()<(s.level>=3?0.92:0.6)) u=bookMove(s.game.moves);
@@ -1874,8 +1961,11 @@ function startPlay(kind,colorPref,level){
   if(kind==='cpu'&&s.human==='b') setTimeout(cpuMove,400);
 }
 async function showHint(){
-  const s=cur(); if(s.over||S.thinking) return;
+  const s=cur(); if(s.over||(S.tab==='play'&&S.thinking)) return;
   if(S.tab==='openings'){ S.hint=s.op.uci[s.game.moves.length]||null; renderHL(); return; }
+  if(S.tab==='learn'&&s.eg){ if(s.done||s.checking||S.busy) return; s.hints++; const k=egMyMoves(s), scripted=s.eg.hintLine&&s.eg.hintLine[k]; if(scripted&&s.eng.fromUci(scripted)){ S.hint=scripted; renderHL(); renderPanel(); return; }
+    S.busy=true; renderPanel(); const run=s.egRun, n=s.game.moves.length; const t=s.eg.goal==='mate'?await askTablebase(s.eng):null; const r=t||await askEngine(s.game.start,s.game.moves,{timeMs:s.eg.level==='Expert'?2500:1500});
+    if(t&&t.dtm&&run===s.egRun&&n===s.game.moves.length){ s.msg=`Best play: checkmate in ${t.dtm} move${t.dtm>1?'s':''}.`; s.msgType=''; } S.busy=false; if(r&&run===s.egRun&&n===s.game.moves.length&&cur()===s){ S.hint=r.move; renderHL(); } renderPanel(); return; }
   if(S.tab==='learn'&&s.fg){ if(s.awaitGuess&&!s.checking){ S.hint=s.fg.uci[s.game.moves.length]; renderHL(); } return; }
   if(S.tab==='learn'){ const st=learnStep(s); if(st&&!s.done&&!s.checking){ S.hint=st.sol; renderHL(); } return; }
   if(S.tab==='puzzles'&&s.tp){ if(!s.solved&&!s.checking){ s.tp.helped=true; S.hint=s.tp.line[s.game.moves.length]; renderHL(); } return; }
@@ -2083,7 +2173,7 @@ function loadLearnStep(s){
   if(S.tab==='learn'){ renderLabels(); renderPieces({instant:true}); renderAll(); }
 }
 function startLesson(les){
-  const s=sessions.learn; s.fg=null; s.awaitGuess=false; s.les=les; s.step=0; s.done=false; s.msg=''; s.msgType='';
+  const s=sessions.learn; s.fg=null; s.eg=null; s.egRun=(s.egRun||0)+1; s.awaitGuess=false; s.les=les; s.step=0; s.done=false; s.msg=''; s.msgType='';
   loadLearnStep(s);
   if(S.tab!=='learn') switchTab('learn',true);
 }
@@ -2213,7 +2303,7 @@ for(const g of FAMOUS){ g.uci=sanToUci(g.moves); g.sans=g.moves.split(' '); g.no
 const fgDone=store.get('fgDone',{});
 function startFamous(g){
   const s=sessions.learn; S.token++;
-  Object.assign(s,{les:null,fg:g,guess:store.get('fgGuess',true),awaitGuess:false,tries:0,right:0,asked:0,checking:false,done:false,msg:'',msgType:'',view:null,over:null,orientation:g.hero});
+  s.egRun=(s.egRun||0)+1; Object.assign(s,{les:null,eg:null,fg:g,guess:store.get('fgGuess',true),awaitGuess:false,tries:0,right:0,asked:0,checking:false,done:false,msg:'',msgType:'',view:null,over:null,orientation:g.hero});
   s.game=newGame(); s.eng.loadUci(START,[]); S.hint=null; S.selected=-1; S.targets=new Map();
   if(S.tab!=='learn') switchTab('learn',true); else { renderLabels(); renderPieces({instant:true}); renderAll(); }
   fgPrompt(s);
@@ -2273,6 +2363,122 @@ function openFamous(){
   const items=FAMOUS.map((g,i)=>`<button class="item" data-fg="${i}"><div class="t"><b>${esc(g.title)}</b><span>${esc(g.white)} vs ${esc(g.black)} · ${esc(g.where)}</span></div>${fgDone[g.id]?'<span class="tag good">✓ Seen</span>':`<span class="tag">${Math.ceil(g.uci.length/2)} moves</span>`}</button>`).join('');
   openSheet(`<h2>Famous games</h2><p class="note">Replay real games by great players, with notes on the key moves. In <b>Guess mode</b> the game pauses at the big moments so you can find the master's move yourself.</p><div class="list">${items}</div>`,'famous');
   $('#sheet').onclick=e=>{ const b=e.target.closest('[data-fg]'); if(b){ closeSheet(); $('#sheet').onclick=null; startFamous(FAMOUS[+b.dataset.fg]); } };
+}
+
+/* ================= endgame trainer ================= */
+// Classic endings played against the engine, which defends (or attacks, in the "hold" drills) as well as
+// it can. Each drill has a goal checked after every move:
+//   mate    - checkmate the lone king; stalemate or losing your piece fails
+//   promote - make a queen the opponent cannot take straight away
+//   hold    - you defend: survive `hold` of your moves (or reach a draw) without the opponent queening
+// Stars compare your move count with `par` (a good, not perfect, number of moves); hints cap it at 2 stars.
+const ENDGAMES=[
+  {id:'ladder',title:'Two-rook ladder mate',level:'Beginner',side:'w',fen:'8/8/8/4k3/8/8/8/R3K2R w - - 0 1',goal:'mate',par:9,
+   about:'Two rooks can checkmate a lone king without any help from your own king.',
+   how:['One rook checks the king along a row; the other rook guards the row next to it.','The king has to step back. Now the other rook checks on the next row, and so on, like climbing a ladder.','If the king walks up to one of your rooks, slide that rook far away along its row, then carry on.','On the edge of the board the check is checkmate.']},
+  {id:'queen',title:'Queen checkmate',level:'Beginner',side:'w',fen:'8/8/8/4k3/8/8/8/3QK3 w - - 0 1',goal:'mate',par:10,
+   about:'A king and queen can always checkmate a lone king in 10 moves or fewer.',
+   how:['Put your queen a knight\'s jump away from the enemy king. This builds a box it cannot leave.','Each time the king moves, follow it with the queen, still a knight\'s jump away. The box gets smaller.','When the king is stuck on the edge, STOP moving the queen. Careful: if the king has no moves and is not in check, it is stalemate, a draw!','Walk your own king up to help, then give checkmate with the queen next to the enemy king, protected by your king.']},
+  {id:'rook',title:'Rook checkmate',level:'Club',side:'w',fen:'8/8/8/4k3/8/8/8/R3K3 w - - 0 1',goal:'mate',par:18,
+   about:'King and rook against king: the most useful checkmate to know, and a bit trickier.',
+   how:['Use the rook to cut the enemy king off along a row or a column.','Bring your king towards the enemy king.','When the two kings face each other (one square between them), check with the rook. The king must step back one row.','If the kings do not face each other, bring your king closer. When the enemy king is a knight\'s jump from yours, make a waiting move with the rook along its line, far from the enemy king.','Repeat until the king is on the edge: then the check is mate.']},
+  {id:'race',title:'Pawn race: the rule of the square',level:'Beginner',side:'w',fen:'8/8/8/5k2/P7/8/8/7K w - - 0 1',goal:'promote',par:4,
+   about:'Can the king catch your pawn? A simple trick tells you without counting.',
+   marks:['a5','b5','c5','d5','a6','b6','c6','d6','a7','b7','c7','d7','a8','b8','c8','d8'],
+   how:['Draw a square from your pawn to the last row and out to the side. If it is your move, start it from the square in front of your pawn (shaded on the board).','If the enemy king can step inside the square on its move, it catches the pawn. If it cannot, the pawn wins the race.','Here the king is outside the square, so just push the pawn every move. A king move would waste time!']},
+  {id:'kingfirst',title:'King in front of the pawn',level:'Club',side:'w',fen:'4k3/8/8/4K3/4P3/8/8/8 w - - 0 1',goal:'promote',par:10,
+   about:'With king and pawn against king, your king leads the way, not the pawn.',marks:['d6','e6','f6'],marksAlways:true,
+   how:['The pawn cannot win alone: the enemy king just walks in front of it.','So march your king ahead of the pawn. Aim for the squares two rows in front of the pawn (here d6, e6 or f6, shaded on the board): from there you always win.','Use the opposition: when the kings face each other with one square between them, whoever has to move must give way.','Push the pawn only when your king has cleared the path.']},
+  {id:'opposition',title:'Hold the draw: the opposition',level:'Club',side:'b',fen:'8/8/4k3/8/4K3/4P3/8/8 w - - 0 1',goal:'hold',hold:14,
+   about:'You only have a king against king and pawn. Defend correctly and it is a draw.',
+   how:['Stay in front of the pawn and block the white king.','When the white king steps forward, put your king straight in front of it, with one square between (that is "taking the opposition").','If you have to step back, go straight back, never to the side.','In the end the pawn gets stuck and it is stalemate or the pawn falls: a draw.']},
+  {id:'lucena',title:'Lucena: build a bridge',level:'Expert',side:'w',fen:'1K6/1P1k4/8/8/8/8/r7/2R5 w - - 0 1',goal:'promote',par:10,hintLine:['c1d1'],
+   about:'The most important winning rook endgame. Your king is stuck in front of its own pawn.',
+   how:['First push the enemy king further away with a check: Rd1+.','Then lift your rook to the 4th row (Rd4). This is the bridge.','Walk your king down towards your rook (c7, b6, c6, b5), stepping away from each check. If the enemy king attacks your rook, slide it along the 4th row.','When your king reaches the 5th row, block the next check with your rook (Rb4). No more checks: the pawn queens.']},
+  {id:'philidor',title:'Philidor: the third-rank defence',level:'Expert',side:'b',fen:'4k3/7R/r7/3KP3/8/8/8/8 b - - 0 1',goal:'hold',hold:14,hintLine:['a6b6'],
+   about:'A rook endgame a pawn down that you can draw with one simple plan.',
+   how:['Keep your rook on your third row (here the 6th row). The white king cannot come forward without being checked. Keep your king on e8 or next to it.','Move the rook along that row while you wait (Rb6 or Rg6: other squares let it be taken). Do not leave the row early.','The moment the pawn steps onto the 6th row, swing your rook to the far end of the board (the 1st row) and check the king from behind. It has nowhere to hide.','Keep checking from a distance: the draw is safe.']}];
+const EG_BY=Object.fromEntries(ENDGAMES.map(e=>[e.id,e]));
+// teaching squares to shade: always, or only before your first move (when they move with the pawn)
+function egMarks(s){ const e=S.tab==='learn'&&s.eg; if(!e||!e.marks||s.done||s.view!==null) return []; return e.marksAlways||egMyMoves(s)===0?e.marks:[]; }
+const egStars=(p=>{ const o={}; if(p&&typeof p==='object') for(const e of ENDGAMES){ const v=p[e.id]; if(Number.isInteger(v)&&v>=1&&v<=3) o[e.id]=v; } return o; })(store.get('egStars',{})); // drill id -> best stars (1-3)
+const egGoalText=e=>e.goal==='mate'?'Goal: checkmate the king. Watch out for stalemate!':e.goal==='promote'?'Goal: make a new queen the opponent cannot capture.':`Goal: you defend. Survive ${e.hold} moves without the pawn becoming a queen.`;
+const starsHTML=n=>{ n=Math.max(0,Math.min(3,n|0)); return `<span class="stars" aria-label="${n} of 3 stars">${'★'.repeat(n)}<i>${'★'.repeat(3-n)}</i></span>`; };
+function startEndgame(e){
+  const s=sessions.learn; s.egRun=(s.egRun||0)+1; // cancels any reply still being computed for an earlier drill
+  Object.assign(s,{les:null,fg:null,eg:e,awaitGuess:false,done:false,ok:false,checking:false,hints:0,msg:'',msgType:'',view:null,over:null,orientation:e.side,showHow:!egStars[e.id]});
+  s.game=newGame(e.fen); s.eng.loadUci(e.fen,[]); S.hint=null; S.selected=-1; S.targets=new Map();
+  if(S.tab!=='learn') switchTab('learn',true); else { renderLabels(); renderPieces({instant:true}); renderAll(); }
+  if((s.eng.turn()?'b':'w')!==e.side){ s.msg='The computer moves first…'; renderPanel(); egReply(s); }
+  else { s.msg='Your move.'; renderPanel(); }
+}
+const egMyMoves=s=>{ const first=s.game.start.split(' ')[1]; return Math.ceil((s.game.moves.length-(first===s.eg.side?0:1))/2); };
+// After a promotion, or when a "hold" drill's moves run out, ask the engine who is really winning.
+// Clearly won/lost positions score beyond ±500; held draws stay well below +400 for the attacker.
+async function egJudge(s,kind){
+  s.checking=true; s.msg='Checking the position…'; s.msgType=''; renderPanel(); const run=s.egRun;
+  const r=await askEngine(s.game.start,s.game.moves,{timeMs:800});
+  if(s.egRun!==run||!s.eg) return;
+  const sc=r?r.score:0, n=egMyMoves(s); // score from the side to move's point of view
+  if(kind==='promoted') return sc<=-500?egFinish(s,true,`A new queen, and the win is safe. You win! (${n} moves)`):egFinish(s,false,'You made a queen, but the opponent can win it back. Try again: clear the way first.');
+  if(kind==='survived') return sc<400?egFinish(s,true,`You survived ${s.eg.hold} moves and it is still a draw. Well defended!`):egFinish(s,false,`You lasted ${s.eg.hold} moves, but the position is now lost. Try again and follow the plan.`);
+  if(kind==='theyPromoted'){ if(sc<=-500) return egFinish(s,false,'The pawn became a queen and the position is lost. Try again: remember the plan in "How to do it".');
+    s.checking=false; s.msg='They made a queen, but you can deal with it. Your move.'; s.msgType=''; renderAll(); }
+}
+const egDrawText=st=>st==='repetition'?'The same position came up three times, so it is a draw.':st==='fifty'?'Fifty moves without a capture or pawn move: a draw.':st==='stalemate'?'Stalemate: a draw.':null;
+function egFinish(s,ok,text){
+  s.done=true; s.ok=ok; s.checking=false; s.msg=text; s.msgType=ok?'good':'bad';
+  if(ok){ const e=s.eg, n=egMyMoves(s); let st=e.goal==='hold'?3:n<=e.par?3:n<=Math.ceil(e.par*1.5)?2:1; if(s.hints) st=Math.min(st,2); s.stars=st;
+    if(st>(egStars[e.id]||0)){ egStars[e.id]=st; store.set('egStars',egStars); } setTimeout(()=>SFX.win(),300); }
+  else { s.stars=0; SFX.bad(); }
+  renderAll();
+}
+async function egAfter(s){
+  const e=s.eg, st=s.eng.status(), last=s.game.moves[s.game.moves.length-1], mine=(s.eng.turn()?'b':'w')!==e.side;
+  const draw=st==='stalemate'||st==='insufficient'||st==='fifty'||st==='repetition';
+  if(mine){
+    if(e.goal==='hold'){ if(draw) return egFinish(s,true,'Draw! You held it. ★'); if(egMyMoves(s)>=e.hold) return egJudge(s,'survived'); }
+    else if(st==='checkmate') return egFinish(s,true,`Checkmate in ${egMyMoves(s)} moves!`);
+    else if(st==='stalemate') return egFinish(s,false,'Stalemate! The king has no moves but is not in check, so it is a draw. Try again and give it room to move.');
+    else if(draw) return egFinish(s,false,(egDrawText(st)||'The position is a draw now.')+' Try again!');
+    else if(e.goal==='promote'&&last.length===5) return egJudge(s,'promoted');
+    s.msg=''; s.msgType=''; renderAll(); return egReply(s);
+  }
+  // the computer just moved
+  if(e.goal==='hold'){
+    if(st==='checkmate') return egFinish(s,false,'Checkmate. Try again and keep your king in front of the pawn.');
+    if(draw) return egFinish(s,true,'Draw! You held it. ★');
+    if(last.length===5) return egJudge(s,'theyPromoted');
+  } else if(draw) return egFinish(s,false,(egDrawText(st)||(e.goal==='mate'?'Your piece was captured, so the game is a draw.':'The pawn was lost, so it is a draw.'))+' Try again!');
+  s.checking=false; s.msg=e.goal==='hold'?`Your move. ${Math.max(0,e.hold-egMyMoves(s))} moves to go.`:'Your move.'; s.msgType=''; renderAll();
+}
+async function egReply(s){
+  s.checking=true; renderPanel(); const run=s.egRun, t0=Date.now();
+  const r=(s.eg.goal==='mate'&&await askTablebase(s.eng))||await askEngine(s.game.start,s.game.moves,{timeMs:s.eg.goal==='hold'?1000:600});
+  await new Promise(x=>setTimeout(x,Math.max(0,450-(Date.now()-t0))));
+  if(s.egRun!==run||!s.eg) return; // retried, undone or left the drill meanwhile
+  if(!r||!commitMove(r.move,{session:s})){ s.checking=false; renderAll(); }
+}
+function egUndo(s){ // take back your last move (and the reply to it)
+  if(s.checking||!s.game.moves.length) return;
+  const first=s.game.start.split(' ')[1]===s.eg.side?0:1, mineLast=(s.game.moves.length-first)%2===1;
+  let n=s.done&&mineLast?1:2; n=Math.min(n,s.game.moves.length-first); if(n<=0) return;
+  s.egRun++; s.game.moves.splice(-n); s.game.sans.splice(-n); s.eng.loadUci(s.game.start,s.game.moves);
+  Object.assign(s,{done:false,ok:false,checking:false,msg:'Move taken back. Your move.',msgType:''}); S.hint=null; deselect(); renderPieces({ms:200}); renderAll();
+}
+function egPanelHTML(s){
+  const e=s.eg, n=egMyMoves(s), i=ENDGAMES.indexOf(e), nxt=ENDGAMES[i+1];
+  return `<div class="card"><h3>${esc(e.title)}<span class="lvtag">${e.level}</span></h3><p>${esc(e.about)}</p><p style="margin-top:6px"><b>${esc(egGoalText(e))}</b></p>
+    <details class="how" ${s.showHow?'open':''}><summary>How to do it</summary><ol class="egsteps">${e.how.map(h=>`<li>${esc(h)}</li>`).join('')}</ol></details>
+    <div class="egmeta"><span>Your moves: <b>${n}</b>${e.goal==='hold'?` of ${e.hold}`:` · aim for ${e.par}`}</span>${s.done&&s.ok?starsHTML(s.stars):''}</div>
+    <div class="feedback ${s.msgType}">${esc(s.msg)}</div></div>
+    <div class="controls"><button class="btn" data-act="eglist">${ICON.list}Endgames</button><button class="btn" data-act="hint" ${s.done||s.checking||S.busy?'disabled':''}>${ICON.bulb}Hint</button><button class="btn" data-act="egundo" ${s.checking||!s.game.moves.length?'disabled':''}>${ICON.undo}</button><button class="btn" data-act="egretry">${ICON.retry}</button>${s.done&&s.ok&&nxt?`<button class="btn primary" data-act="egnext">Next</button>`:''}</div>`;
+}
+function openEndgames(){
+  let lv='';
+  const items=ENDGAMES.map(e=>{ const h=e.level!==lv?`<h4>${(lv=e.level)}</h4>`:''; return h+`<button class="item" data-eg="${e.id}"><div class="t"><b>${esc(e.title)}</b><span>${esc(e.about)}</span></div>${egStars[e.id]?starsHTML(egStars[e.id]):'<span class="tag">New</span>'}</button>`; }).join('');
+  openSheet(`<h2>Endgame trainer</h2><p class="note">Practise the endings every player should know, against the computer. Each one comes with a step-by-step plan. Earn up to 3 stars by finishing in few moves.</p><div class="list">${items}</div>`,'endgames');
+  $('#sheet').onclick=ev=>{ const b=ev.target.closest('[data-eg]'); if(b){ closeSheet(); $('#sheet').onclick=null; startEndgame(EG_BY[b.dataset.eg]); } };
 }
 
 // Readings: short articles. Written in plain language; body is trusted static HTML.
@@ -2366,7 +2572,7 @@ function openReading(i){
   $('#sheet').onclick=e=>{ if(e.target.closest('#rdBack')) openReadings(); else if(e.target.closest('#rdNext')) openReading(i+1); };
 }
 // Read-only handle for automated tests.
-Object.defineProperty(window,'__tc',{value:{get pzStreak(){ return pzStreak; },startThemePuzzle,PZ_THEMES,get pzProg(){ return pzProg; },startReview,rvDone,get B3(){ return B3; },get S(){ return S; },enable3D,off3D,settings,OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
+Object.defineProperty(window,'__tc',{value:{ENDGAMES,startEndgame,get egStars(){ return egStars; },get pzStreak(){ return pzStreak; },startThemePuzzle,PZ_THEMES,get pzProg(){ return pzProg; },startReview,rvDone,get B3(){ return B3; },get S(){ return S; },enable3D,off3D,settings,OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
 
 /* ================= family (online) ================= */
 /* Family games over Firebase Realtime Database.
@@ -2675,6 +2881,7 @@ function renderStrips(){
   } else if(S.tab==='openings'){ const c=s.op?s.op.side:'w', o=c==='w'?'b':'w'; info[c]={name:'You',av:pimg(c)}; info[o]={name:'Opening book',av:'📖'}; }
   else if(S.tab==='puzzles'){ const c=s.side||'w', o=c==='w'?'b':'w'; info[c]={name:'You',av:pimg(c)}; info[o]={name:'Defender',av:'🛡️'}; }
   else if(S.tab==='learn'&&s.fg){ info.w={name:s.fg.white,sub:'White',av:pimg('w')}; info.b={name:s.fg.black,sub:'Black',av:pimg('b')}; }
+  else if(S.tab==='learn'&&s.eg){ const me=s.eg.side, op=me==='w'?'b':'w'; info[me]={name:'You',av:pimg(me),nocaps:true}; info[op]={name:s.eg.goal==='hold'?'Attacker':'Defender',sub:'Computer',av:s.eg.goal==='hold'?'⚔️':'🛡️',nocaps:true}; }
   else if(S.tab==='learn'){ info.w={name:'You',av:pimg('w'),nocaps:true}; info.b={name:'Coach',sub:'Learn to play',av:'🎓',nocaps:true}; }
   else {
     const av=id=>{ const u=Fam.avatars&&Fam.avatars[id]; return u?`<img src="${esc(u)}" alt="">`:'👤'; };
@@ -2746,7 +2953,8 @@ function renderPanel(){
       h+=`<div class="controls"><button class="btn" data-act="pzlist">${ICON.list}List</button><button class="btn" data-act="pzclue" ${s.solved?'disabled':''}>Clue</button><button class="btn" data-act="hint" ${s.solved||s.checking||S.busy?'disabled':''}>${ICON.bulb}Hint</button><button class="btn" data-act="pzretry">${ICON.retry}Retry</button><button class="btn ${s.solved?'primary':''}" data-act="pznext">Next</button></div>`;
     }
   } else if(S.tab==='learn'){
-    if(s.fg){
+    if(s.eg) h+=egPanelHTML(s);
+    else if(s.fg){
       const g=s.fg, n=s.game.moves.length, end=n===g.uci.length, note=n?g.noteAt[n-1]:'';
       const last=n?`<b>${Math.ceil(n/2)}${n%2?'.':'...'} ${esc(g.markAt[n-1]||g.sans[n-1])}</b> `:'';
       h+=`<div class="card"><h3>${esc(g.title)} <span style="font-size:12px;color:var(--muted);font-family:Inter">${esc(g.where)}</span></h3>`;
@@ -2761,6 +2969,7 @@ function renderPanel(){
       h+=`<div class="card"><h3>Learn chess</h3><p>Start with the basics, then learn from the masters.</p></div><div class="list learnhub">
         <button class="item" data-act="lsnext"><div class="t"><b>🎓 Lessons for beginners</b><span>How the pieces move, check, checkmate and special moves · ${n} of ${LESSONS.length} done</span></div></button>
         <button class="item" data-act="fglist"><div class="t"><b>🏆 Famous games</b><span>Replay games by Morphy, Anderssen, Fischer and more, and guess their moves · ${nf} of ${FAMOUS.length} seen</span></div></button>
+        <button class="item" data-act="eglist"><div class="t"><b>♔ Endgame trainer</b><span>Checkmate with a queen or rook, win pawn races, hold a draw. Step-by-step plans, beginner to expert · ${ENDGAMES.filter(e=>egStars[e.id]).length} of ${ENDGAMES.length} done</span></div></button>
         <button class="item" data-act="rdlist"><div class="t"><b>📖 Readings</b><span>Short articles: opening rules, tactics, checkmates, endgames, great players · ${nr} of ${READINGS.length} read</span></div></button>
       </div>`; }
     else {
@@ -2796,6 +3005,7 @@ function setView(v){
   if(v!==null){ v=clamp(v,0,n); if(v===n) v=null; }
   s.view=v; deselect(); S.hint=null; S.revArrow=null; renderPieces({ms:180}); renderAll();
 }
+$('#panel').addEventListener('toggle',e=>{ if(e.target.matches('details.how')&&sessions.learn.eg) sessions.learn.showHow=e.target.open; },true);
 $('#panel').addEventListener('click',e=>{
   const b=e.target.closest('[data-act],[data-i],[data-react]'); if(!b) return; ac();
   if(b.dataset.react){ Fam.react(b.dataset.react); return; }
@@ -2826,6 +3036,10 @@ $('#panel').addEventListener('click',e=>{
     case 'lslist': openLessons(); break;
     case 'fglist': openFamous(); break;
     case 'rdlist': openReadings(); break;
+    case 'eglist': openEndgames(); break;
+    case 'egretry': startEndgame(s.eg); break;
+    case 'egundo': egUndo(s); break;
+    case 'egnext': { const i=ENDGAMES.indexOf(s.eg); if(ENDGAMES[i+1]) startEndgame(ENDGAMES[i+1]); break; }
     case 'fgnext': fgNext(s); break;
     case 'fgprev': fgGoto(s,s.game.moves.length-1); break;
     case 'fgstart': fgGoto(s,0); break;
@@ -2849,6 +3063,7 @@ function switchTab(t,silent){
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
   renderLabels(); renderPieces({instant:true}); renderAll();
   store.set('tab',t);
+  if(t==='play'){ const p=sessions.play; if(p.kind==='cpu'&&!p.over&&(p.eng.turn()?'b':'w')!==p.human&&S.cpuTok!==S.token) cpuMove(); }
   if(!silent){
     if(t==='openings'&&!cur().op) openOpenings();
     if(t==='family'&&Fam.state==='ready'&&!cur().gid) openLobby();
@@ -2968,6 +3183,7 @@ function searchIndex(){
   LESSONS.forEach(l=>out.push({kind:'Lesson',icon:'🎓',title:l.title,sub:l.about,score:q=>scoreText([[l.title,5],[l.about,1.5],['lesson beginner learn how to move',.5]],q),open:()=>{ closeSheet(); startLesson(l); }}));
   FAMOUS.forEach(g=>out.push({kind:'Famous game',icon:'🏆',title:g.title,sub:`${g.white} vs ${g.black} · ${g.where}`,score:q=>scoreText([[g.title,5],[g.white+' '+g.black,4],[g.where,2],[g.about,1],['famous game master',.5]],q),open:()=>{ closeSheet(); startFamous(g); }}));
   READINGS.forEach((r,i)=>out.push({kind:'Reading',icon:'📄',title:r.title,sub:`${r.mins} min read`,score:q=>scoreText([[r.title,5],[r.body.replace(/<[^>]+>/g,' '),1],['reading article',.5]],q),open:()=>openReading(i)}));
+  ENDGAMES.forEach(e=>out.push({kind:'Endgame',icon:'♔',title:e.title,sub:`${e.level} · ${e.about}`,score:q=>scoreText([[e.title,5],[e.about,1.5],['endgame ending trainer '+e.level,.7],[e.how.join(' '),.4]],q),open:()=>{ closeSheet(); startEndgame(e); }}));
   PZ_THEMES.forEach(t=>out.push({kind:'Puzzle theme',icon:t.icon,title:t.name+' puzzles',sub:t.about,score:q=>scoreText([[t.name,5],[t.about,1.5],['puzzle tactic theme '+t.group,.6]],q),open:()=>{ closeSheet(); startThemePuzzle(t.k,pzLevel); }}));
   PUZZLES.forEach(p=>out.push({kind:'Puzzle',icon:'🧩',title:p.title,sub:`Mate in ${p.mate}`,score:q=>scoreText([[p.title,5],[p.hint,1.5],['puzzle mate in '+p.mate+' tactic',.6]],q),open:()=>{ closeSheet(); startPuzzle(p); }}));
   const go=(tab,fn)=>()=>{ closeSheet(); switchTab(tab); if(fn) setTimeout(fn,50); };
