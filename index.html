@@ -212,6 +212,11 @@ nav.tabs button.on{color:var(--accent2);background:rgba(227,165,90,.1)}
 .article .tip{margin-top:14px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--accent2) 12%,transparent);border-left:3px solid var(--accent2)}
 .learnhub{margin-top:10px}
 .learnhub .item .t span{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35}
+#board3d{display:none;position:relative;margin:0 auto;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:14px;overflow:hidden}
+#board3d.on{display:block}
+#board3d canvas{display:block;width:100%;height:100%}
+#board3d .b3view{position:absolute;top:8px;right:8px;z-index:5;height:34px;padding:0 12px;border-radius:17px;border:1px solid rgba(255,228,190,.25);background:rgba(21,16,12,.62);color:var(--text);font:inherit;font-size:13px;display:flex;align-items:center;gap:6px;backdrop-filter:blur(4px)}
+#board3d .b3load{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px}
 .segrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .seg{display:flex;background:var(--panel);border-radius:10px;padding:3px;gap:2px}
 .seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;padding:7px 10px;border-radius:8px}
@@ -245,6 +250,7 @@ nav.tabs button.on{color:var(--accent2);background:rgba(227,165,90,.1)}
   <main>
     <section class="table">
       <div class="strip" id="stripTop"></div>
+      <div id="board3d"></div>
       <div class="frame" id="frame">
         <div class="rlabels" id="rlabels"></div>
         <div id="board">
@@ -1190,7 +1196,7 @@ const store={
   get(k,d){ try{ const v=localStorage.getItem('timber.'+k); return v==null?d:JSON.parse(v);}catch(e){return d;} },
   set(k,v){ try{ localStorage.setItem('timber.'+k,JSON.stringify(v)); }catch(e){} }
 };
-const settings=Object.assign({sounds:'auto',sound:true,haptics:true,dots:true,last:true,coords:true,autoQueen:false,theme:'walnut',pieces:'wood'},store.get('settings',{}));
+const settings=Object.assign({board3d:false,view3d:'tilt',sounds:'auto',sound:true,haptics:true,dots:true,last:true,coords:true,autoQueen:false,theme:'walnut',pieces:'wood'},store.get('settings',{}));
 function saveSettings(){ store.set('settings',settings); }
 
 /* ================= wood art ================= */
@@ -1307,7 +1313,7 @@ const IMG={};
 function buildPieces(){ for(const c of 'wb') for(const t of 'PNBRQK') IMG[c+t]=pieceSvg(t,c); }
 buildPieces();
 // Switch piece set live: redraw the images, then repaint everything that shows a piece.
-function applyPieces(){ buildPieces(); $('#brandImg').src=IMG.wN; for(const pe of pieceEls) pe.img.src=pieceImg(pe.p); renderAll(); }
+function applyPieces(){ if(B3){ const set=PIECE_SETS[settings.pieces]||PIECE_SETS.wood; B3.setPieceColors({w:{base:set.w.base,dark:set.w.grain||set.w.lo},b:{base:set.b.mid,dark:set.b.grain||set.b.lo}}); } buildPieces(); $('#brandImg').src=IMG.wN; for(const pe of pieceEls) pe.img.src=pieceImg(pe.p); renderAll(); }
 const psetThumbCache={};
 function psetThumb(k,c){ const key=k+c; return psetThumbCache[key]||(psetThumbCache[key]=pieceSvg(c==='w'?'K':'N',c,k)); }
 const pieceImg=ch=>IMG[(ch===ch.toUpperCase()?'w':'b')+ch.toUpperCase()];
@@ -1469,6 +1475,11 @@ function layout(){
   document.documentElement.style.setProperty('--sq',SQ+'px');
   document.documentElement.style.setProperty('--frame',frame+'px');
   arrowsEl.setAttribute('viewBox',`0 0 ${SQ*8} ${SQ*8}`);
+  { // 3D view: portrait-ish on phones (captured pieces at the ends), landscape on wide screens (captured pieces at the sides)
+    const b3=$('#board3d'), sq8=SQ*8+frame*2; let w,h;
+    if(wide){ h=Math.round(Math.min(vh-150,sq8+40)); w=Math.round(Math.min(availW+frame*2,h*1.42)); }
+    else { w=sq8; h=Math.round(Math.max(w,Math.min(availH+frame*2,w*1.18))); }
+    b3.style.width=w+'px'; b3.style.height=h+'px'; }
   placeAll();
 }
 function sqXY(s){ const f=s&7,r=s>>3; const o=cur().orientation; const col=o==='w'?f:7-f, row=o==='w'?7-r:r; return [col*SQ,row*SQ]; }
@@ -1486,6 +1497,7 @@ function displayed(){
 }
 function renderPieces(anim){
   anim=anim||{};
+  if(B3){ const s=cur(), {board}=displayed(); B3.setOrientation(s.orientation); B3.setPosition(board,{hints:anim.hints,ms:anim.ms,instant:anim.instant,captured:s.game.start===START&&S.tab!=='learn'?capturedInfo(board).lost:{w:[],b:[]}}); D.dropEl=null; return; }
   const {board}=displayed();
   const want=[]; for(let s=0;s<64;s++) if(board[s]) want.push({s,p:board[s],pe:null});
   const used=new Set();
@@ -1523,6 +1535,11 @@ function renderPieces(anim){
 }
 function renderHL(){
   const s=cur(); const {last,eng}=displayed();
+  if(B3){ const live=s.view===null, marks=S.flashes.map(f=>({sq:f.s,color:f.cls==='wrong'?'red':'green'}));
+    if(S.tab==='learn'&&s.les&&!s.done&&!s.checking){ const st=learnStep(s); if(st&&st.goal.to) for(const t of st.goal.to) marks.push({sq:nameSq(t),color:'blue'}); }
+    let check=null; if(eng.inCheck()){ const k=eng.kingSquare(); check=(k>>4)*8+(k&7); }
+    B3.setHighlights({lastMove:last&&settings.last?[last.slice(0,2),last.slice(2,4)]:null, selected:live?S.selected:-1, targets:settings.dots&&live?S.targets:[], check, hint:S.hint&&live?[S.hint.slice(0,2),S.hint.slice(2,4)]:null, marks});
+    return; }
   let h='';
   const put=(sq,cls)=>{ const [x,y]=sqXY(sq); h+=`<div class="hl ${cls}" style="transform:translate(${x}px,${y}px)"></div>`; };
   if(last&&settings.last){ put(nameSq(last.slice(0,2)),'last'); put(nameSq(last.slice(2,4)),'last'); }
@@ -1557,8 +1574,60 @@ function renderLabels(){
   $('#frame').classList.toggle('nocoords',!settings.coords);
 }
 function applyTheme(){
+  if(B3){ const t=THEMES[settings.theme]; B3.setTheme({light:t.light,lightGrain:t.lg,dark:t.dark,darkGrain:t.dg}); }
   $('#bgimg').src=boardSvg(settings.theme);
   $('#frame').style.setProperty('--framegrain',frameSvg(settings.theme));
+}
+
+/* ================= optional 3D board ================= */
+// board3d.js (+ the bundled three.js) loads only when Settings > 3D board is on. The game logic stays the same:
+// renderPieces/renderHL hand the position and highlights to the 3D view instead of the 2D one.
+var B3=null, B3loading=null, b3WasSel=false; // var: safe to read before this line runs
+const VIEW_NAMES={tilt:'Tilted',top:'From above',low:'Low'};
+function enable3D(){
+  if(B3||B3loading) return B3loading;
+  const host=$('#board3d');
+  B3loading=(async()=>{
+    host.classList.add('on'); $('#frame').style.display='none'; host.innerHTML='<div class="b3load">Setting up the 3D board…</div>'; layout();
+    let mod; try{ mod=await import('./board3d.js'); }catch(e){ toast('The 3D board needs an internet connection the first time.',3500); off3D(); return; }
+    host.innerHTML='';
+    let b=null; try{ b=mod.create3DBoard(host,{onSquareDown:b3Down,onSquareUp:b3Up,onContextLost:()=>{ toast('3D stopped, back to the flat board'); off3D(); },allowSoftware:!!window.__tc3dSoftware}); }catch(e){ b=null; }
+    if(!b||!settings.board3d){ if(b) b.dispose(); if(settings.board3d) toast('3D isn\'t supported on this device, so the flat board is shown.',3500); off3D(); return; }
+    B3=b;
+    host.appendChild($('#promo'));
+    const vb=document.createElement('button'); vb.className='b3view'; vb.setAttribute('aria-label','Change camera view');
+    const label=()=>{ vb.textContent='🎥 '+(VIEW_NAMES[B3.getView()]||'View'); };
+    vb.addEventListener('pointerdown',e=>e.stopPropagation());
+    vb.addEventListener('click',e=>{ e.stopPropagation(); ac(); settings.view3d=B3.cycleView(); saveSettings(); label(); });
+    host.appendChild(vb);
+    B3.setOrientation(cur().orientation,true); if(settings.view3d) B3.cycleView(settings.view3d,true); label();
+    applyPieces(); applyTheme(); renderPieces({instant:true}); renderHL();
+  })().finally(()=>{ B3loading=null; });
+  return B3loading;
+}
+function off3D(){
+  if(B3){ try{ B3.dispose(); }catch(e){} B3=null; }
+  if(settings.board3d){ settings.board3d=false; saveSettings(); const t=document.querySelector('[data-set="board3d"]'); if(t) t.classList.remove('on'); }
+  const host=$('#board3d'); $('#board').appendChild($('#promo')); host.classList.remove('on'); host.innerHTML=''; $('#frame').style.display='';
+  layout(); renderLabels(); renderPieces({instant:true}); renderHL();
+}
+// Pointer handling for the 3D board: same rules as tapping and dragging on the flat board.
+function b3Down(sq){
+  ac(); if(sq<0){ deselect(); return false; }
+  const s=cur();
+  if(s.view!==null){ toast('Viewing an earlier move — tap ⏭ to go back to the game'); return false; }
+  if(S.busy||$('#promo').style.display==='flex') return false;
+  if(S.selected>=0&&S.targets.has(sq)){ attemptMove(S.selected,sq,false); return false; }
+  const p=s.eng.board()[sq], stm=s.eng.turn()?'b':'w';
+  if(p&&colorOf(p)===stm&&humanCanMove(stm)){ b3WasSel=S.selected===sq; select(sq); SFX.pick(); buzz(6); return true; }
+  deselect(); return false;
+}
+function b3Up(sq,e,info){
+  info=info||{};
+  if(!info.dragged){ if(b3WasSel) deselect(); return; }
+  if(sq>=0&&sq!==info.from&&S.targets.has(sq)){ attemptMove(info.from,sq,true); return true; }
+  if(sq>=0&&sq!==info.from) SFX.illegal();
+  deselect(); return false;
 }
 
 /* ================= drag & tap ================= */
@@ -1669,10 +1738,11 @@ boardEl.addEventListener('contextmenu',e=>e.preventDefault());
 
 function choosePromotion(to,color){
   return new Promise(res=>{
-    const box=$('#promo'); const [x,y]=sqXY(to);
+    const box=$('#promo'); let [x,y]=sqXY(to), top;
     const order=['q','n','r','b'];
     box.innerHTML=order.map(p=>`<button data-p="${p}"><img src="${IMG[color+p.toUpperCase()]}" alt="${p}"></button>`).join('');
-    const top=y<SQ*4?y:y-SQ*3;
+    if(B3){ const h=$('#board3d'), pt=B3.squareToScreen(to); x=clamp(pt.x-SQ/2,4,h.clientWidth-SQ-4); top=clamp(pt.y<h.clientHeight/2?pt.y:pt.y-SQ*4,4,h.clientHeight-SQ*4-4); }
+    else top=y<SQ*4?y:y-SQ*3;
     box.style.left=x+'px'; box.style.top=top+'px'; box.style.display='flex';
     const done=p=>{ box.style.display='none'; $('#scrim').removeEventListener('click',off); res(p); };
     const off=()=>done(null);
@@ -1686,16 +1756,16 @@ async function attemptMove(from,to,dropped){
   let u=opts[0];
   if(opts.length>1){
     const color=s.eng.turn()?'b':'w';
-    if(dropped){ const pe=pieceEls.find(p=>p.s===from); if(pe){ pe.el.style.transition='transform .12s'; pe.img.style.transform=''; pe.el.classList.remove('lifted'); const [x,y]=sqXY(to); pe.el.style.transform=`translate(${x}px,${y}px)`; } }
+    if(dropped&&!B3){ const pe=pieceEls.find(p=>p.s===from); if(pe){ pe.el.style.transition='transform .12s'; pe.img.style.transform=''; pe.el.classList.remove('lifted'); const [x,y]=sqXY(to); pe.el.style.transform=`translate(${x}px,${y}px)`; } }
     const pick=settings.autoQueen?'q':await choosePromotion(to,color);
-    if(!pick){ const pe=pieceEls.find(p=>p.s===from); if(pe) settle(pe,false); D.dropEl=null; deselect(); return; }
+    if(!pick){ const pe=B3?null:pieceEls.find(p=>p.s===from); if(pe) settle(pe,false); D.dropEl=null; deselect(); if(B3) renderPieces({ms:200}); return; }
     u=opts.find(x=>x[4]===pick)||opts[0];
   }
   if(S.tab==='openings'){
     const exp=s.op.uci[s.game.moves.length];
     if(u!==exp){
       s.mistakes++; s.errs++; const pe=pieceEls.find(p=>p.s===from); D.dropEl=null;
-      if(pe){ settle(pe,true); setTimeout(()=>{pe.el.classList.remove('shake');void pe.el.offsetWidth;pe.el.classList.add('shake');},180); }
+      if(B3) renderPieces({ms:220}); else if(pe){ settle(pe,true); setTimeout(()=>{pe.el.classList.remove('shake');void pe.el.offsetWidth;pe.el.classList.add('shake');},180); }
       flash(to,'wrong'); SFX.bad(); buzz([20,40,20]); deselect();
       const m=s.eng.fromUci(exp); const expSan=m?s.eng.san(m):'';
       s.msg=s.mistakes>=2?`Not this time. The book move is ${expSan} (shown by the arrow).`:'Not the book move. Have another go.'; s.msgType='bad';
@@ -1799,7 +1869,7 @@ async function showHint(){
   S.busy=false;
   if(r&&tok===S.token&&cur()===s){ S.hint=r.move; renderHL(); }
 }
-function flip(){ const s=cur(); s.orientation=s.orientation==='w'?'b':'w'; renderPieces.o=s.orientation; if(s===sessions.play) savePlay(); renderLabels(); for(const pe of pieceEls){ pe.el.style.transition='transform .35s cubic-bezier(.25,.8,.25,1)'; placeEl(pe);} renderHL(); renderStrips(); }
+function flip(){ const s=cur(); s.orientation=s.orientation==='w'?'b':'w'; if(B3) B3.setOrientation(s.orientation); renderPieces.o=s.orientation; if(s===sessions.play) savePlay(); renderLabels(); for(const pe of pieceEls){ pe.el.style.transition='transform .35s cubic-bezier(.25,.8,.25,1)'; placeEl(pe);} renderHL(); renderStrips(); }
 
 /* ================= openings trainer ================= */
 const opDone=store.get('opDone',{});
@@ -2191,7 +2261,7 @@ function openReading(i){
   $('#sheet').onclick=e=>{ if(e.target.closest('#rdBack')) openReadings(); else if(e.target.closest('#rdNext')) openReading(i+1); };
 }
 // Read-only handle for automated tests.
-Object.defineProperty(window,'__tc',{value:{OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
+Object.defineProperty(window,'__tc',{value:{get B3(){ return B3; },get S(){ return S; },enable3D,off3D,settings,OPENING_BOOK,BOOK_BAD,openingEntry,openSearch,FAMOUS,READINGS,START,EngineFactory,sessions,openReadings,renderAll}});
 
 /* ================= family (online) ================= */
 /* Family games over Firebase Realtime Database.
@@ -2823,13 +2893,14 @@ function openPuzzles(){
 function openSettings(){
   const tg=(k,label)=>`<div class="toggle"><span>${label}</span><button class="sw ${settings[k]?'on':''}" data-set="${k}" aria-label="${label}"></button></div>`;
   openSheet(`<h2>Settings</h2>
+    <h4>Board</h4>${tg('board3d','3D board')}<p class="note" style="margin:2px 0 6px">A realistic 3D table. Tap the camera button on the board to change the view. Uses more battery.</p>
     <h4>Board wood</h4><div class="themes">${Object.entries(THEMES).map(([k,t])=>`<button data-theme="${k}" class="${settings.theme===k?'on':''}"><img src="${boardThumb(k)}" alt="">${t.name}</button>`).join('')}</div>
     <h4>Pieces</h4><div class="psets">${Object.entries(PIECE_SETS).map(([k,p])=>`<button data-pset="${k}" class="${settings.pieces===k?'on':''}"><span class="pv"><img src="${psetThumb(k,'w')}" alt=""><img src="${psetThumb(k,'b')}" alt=""></span>${p.name}</button>`).join('')}</div>
     <h4>Feel</h4>${tg('sound','Sounds')}<div class="segrow"><span>Sound of the pieces</span><div class="seg" id="sndSeg">${[['auto','Match pieces'],['wood','Wood'],['stone','Marble']].map(([k,t])=>`<button data-snd="${k}" class="${settings.sounds===k?'on':''}">${t}</button>`).join('')}</div></div>${tg('haptics','Vibration')}${tg('dots','Show legal moves')}${tg('last','Highlight last move')}${tg('coords','Board coordinates')}${tg('autoQueen','Always promote to queen')}
     <h4>This game</h4><div class="row" style="margin-top:0"><button class="btn" id="copyPgn">Copy moves (PGN)</button></div>
     <p class="note" style="margin-top:16px">No ads, no tracking and no accounts. Your settings and progress stay on this device. <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--accent2)">Privacy policy</a></p>`,'settings');
   $('#sheet').onclick=e=>{
-    const sw=e.target.closest('[data-set]'); if(sw){ const k=sw.dataset.set; settings[k]=!settings[k]; sw.classList.toggle('on',settings[k]); saveSettings(); renderLabels(); renderHL(); if(k==='sound'&&settings.sound) SFX.move(); return; }
+    const sw=e.target.closest('[data-set]'); if(sw){ const k=sw.dataset.set; settings[k]=!settings[k]; sw.classList.toggle('on',settings[k]); saveSettings(); if(k==='board3d'){ if(settings.board3d) enable3D(); else off3D(); } renderLabels(); renderHL(); if(k==='sound'&&settings.sound) SFX.move(); return; }
     const sd=e.target.closest('[data-snd]'); if(sd){ settings.sounds=sd.dataset.snd; saveSettings(); document.querySelectorAll('[data-snd]').forEach(b=>b.classList.toggle('on',b===sd)); if(!settings.sound){ settings.sound=true; saveSettings(); const t=document.querySelector('[data-set="sound"]'); if(t) t.classList.add('on'); } SFX.move(); setTimeout(()=>SFX.capture(),260); return; }
     const ps=e.target.closest('[data-pset]'); if(ps){ settings.pieces=ps.dataset.pset; saveSettings(); applyPieces(); document.querySelectorAll('[data-pset]').forEach(b=>b.classList.toggle('on',b===ps)); SFX.move(); return; }
     const th=e.target.closest('[data-theme]'); if(th){ settings.theme=th.dataset.theme; saveSettings(); applyTheme(); document.querySelectorAll('[data-theme]').forEach(b=>b.classList.toggle('on',b===th)); return; }
@@ -2954,6 +3025,7 @@ const ps=sessions.play;
 if(ps.kind==='cpu'&&ps.eng.status()==='ongoing'&&(ps.eng.turn()?'b':'w')!==ps.human) setTimeout(cpuMove,500);
 else if(ps.eng.status()!=='ongoing'){ ps.over=resultText(ps.eng.status(),ps.eng.turn()?'b':'w'); renderAll(); }
 Fam.init();
+if(settings.board3d) setTimeout(()=>enable3D(),0);
 if('serviceWorker' in navigator&&location.protocol==='https:'){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }
 })();
 
