@@ -2504,13 +2504,15 @@ function startEndgame(e){
 }
 const egMyMoves=s=>{ const first=s.game.start.split(' ')[1]; return Math.ceil((s.game.moves.length-(first===s.eg.side?0:1))/2); };
 // After a promotion, or when a "hold" drill's moves run out, ask the engine who is really winning.
-// Clearly won/lost positions score beyond ±500; held draws stay well below +400 for the attacker.
+// Clearly won/lost positions score beyond ±300 (queen v rook ≈ 470, rook v lone king ≈ 800); a queen won
+// back for nothing comes out near 0. Held draws stay well below +400 for the attacker.
 async function egJudge(s,kind){
   s.checking=true; s.msg='Checking the position…'; s.msgType=''; renderPanel(); const run=s.egRun;
   const r=await askEngine(s.game.start,s.game.moves,{timeMs:800});
   if(s.egRun!==run||!s.eg) return;
   const sc=r?r.score:0, n=egMyMoves(s); // score from the side to move's point of view
-  if(kind==='promoted') return sc<=-500?egFinish(s,true,`A new queen, and the win is safe. You win! (${n} moves)`):egFinish(s,false,'You made a queen, but the opponent can win it back. Try again: clear the way first.');
+  if(kind==='promoted') return sc<=-300?egFinish(s,true,`A new queen, and the win is safe. You win! (${n} moves)`):egFinish(s,false,'You made a queen, but the opponent can win it back. Try again: clear the way first.');
+  if(kind==='pawnGone') return sc>=300?egFinish(s,true,`They gave up their rook to stop your pawn, so you are a whole rook ahead: a sure win (just like the Rook mate drill). You win! (${n} moves)`):egFinish(s,false,'Your pawn was captured and the win is gone. Try again: protect the pawn and build the bridge.');
   if(kind==='survived') return sc<400?egFinish(s,true,`You survived ${s.eg.hold} moves and it is still a draw. Well defended!`):egFinish(s,false,`You lasted ${s.eg.hold} moves, but the position is now lost. Try again and follow the plan.`);
   if(kind==='theyPromoted'){ if(sc<=-500) return egFinish(s,false,'The pawn became a queen and the position is lost. Try again: remember the plan in "How to do it".');
     s.checking=false; s.msg='They made a queen, but you can deal with it. Your move.'; s.msgType=''; renderAll(); }
@@ -2539,7 +2541,8 @@ async function egAfter(s){
     if(st==='checkmate') return egFinish(s,false,'Checkmate. Try again and keep your king in front of the pawn.');
     if(draw) return egFinish(s,true,'Draw! You held it. ★');
     if(last.length===5) return egJudge(s,'theyPromoted');
-  } else if(draw) return egFinish(s,false,(egDrawText(st)||(e.goal==='mate'?'Your piece was captured, so the game is a draw.':'The pawn was lost, so it is a draw.'))+' Try again!');
+  } else if(e.goal==='promote'&&!draw&&!s.eng.board().includes(e.side==='w'?'P':'p')) return egJudge(s,'pawnGone'); // the pawn is gone: who is winning now?
+  else if(draw) return egFinish(s,false,(egDrawText(st)||(e.goal==='mate'?'Your piece was captured, so the game is a draw.':'The pawn was lost, so it is a draw.'))+' Try again!');
   s.checking=false; s.msg=e.goal==='hold'?`Your move. ${Math.max(0,e.hold-egMyMoves(s))} moves to go.`:'Your move.'; s.msgType=''; renderAll();
 }
 async function egReply(s){
