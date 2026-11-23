@@ -416,7 +416,7 @@ const DEFAULT_PIECES = { w: { base: '#f0d6a6', dark: '#b88a52' }, b: { base: '#4
 
 /* ---------------------------------------------------------------- views */
 const VIEWS = {
-  tilt: { el: 61, az: 0, fov: 30 }, // high enough that pieces don't hide the squares behind them
+  tilt: { el: 65, az: 0, fov: 30 }, // high enough that pieces don't hide the squares behind them
   top: { el: 78, az: 0, fov: 26 },
   low: { el: 25, az: 0.38, fov: 30 },
 };
