@@ -36,7 +36,9 @@ async function waitFor(fn, ms = 20000, step = 100) { const s = Date.now(); while
   check((await moves()) === 'e2e4', 'tap-tap move e2-e4 in 3D: ' + await moves());
   await tap('e7'); await tap('e5'); await sleep(600);
   // drag
-  const drag = async (a, z) => { const [x0, y0] = await aim(a), [x1, y1] = await sqXY(N(z), 0.25); await page.mouse.move(x0, y0); await page.mouse.down(); for (let i = 1; i <= 12; i++) { await page.mouse.move(x0 + (x1 - x0) * i / 12, y0 + (y1 - y0) * i / 12); await sleep(20); } await sleep(80); await page.mouse.up(); await sleep(700); };
+  const drag = async (a, z, toward, k) => { const [x0, y0] = await aim(a); let [x1, y1] = await sqXY(N(z), 0.25);
+    if (toward) { const [x2, y2] = await sqXY(N(toward), 0.25); x1 += (x2 - x1) * k; y1 += (y2 - y1) * k; } // release part-way toward another square
+    await page.mouse.move(x0, y0); await page.mouse.down(); for (let i = 1; i <= 12; i++) { await page.mouse.move(x0 + (x1 - x0) * i / 12, y0 + (y1 - y0) * i / 12); await sleep(20); } await sleep(80); await page.mouse.up(); await sleep(700); };
   await drag('g1', 'f3');
   check((await moves()) === 'e2e4 e7e5 g1f3', 'drag move Ng1-f3 in 3D: ' + await moves());
   // illegal drop flies back
@@ -44,7 +46,10 @@ async function waitFor(fn, ms = 20000, step = 100) { const s = Date.now(); while
   check((await moves()) === 'e2e4 e7e5 g1f3', 'illegal drop (queen through own pawn) is refused');
   await page.screenshot({ path: path.join(__dirname, 'output', `3d-${TAG}-mid.png`) });
   // capture + material: Nf3xe5
-  await tap('b8'); await tap('c6'); await tap('f3'); await tap('e5'); await sleep(700);
+  // a near miss still counts: let go 60% of the way into d6 (not a knight move); the nearest legal square, c6, is used
+  await drag('b8', 'c6', 'd6', 0.6);
+  check((await moves()).endsWith('b8c6'), 'near-miss drop snaps to the nearest legal square (b8-c6): ' + await moves());
+  await tap('f3'); await tap('e5'); await sleep(700);
   check((await moves()).endsWith('f3e5'), 'capture Nxe5 works');
   // camera view button
   await page.click('#board3d .b3view'); await sleep(900);

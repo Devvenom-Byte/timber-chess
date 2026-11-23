@@ -416,7 +416,7 @@ const DEFAULT_PIECES = { w: { base: '#f0d6a6', dark: '#b88a52' }, b: { base: '#4
 
 /* ---------------------------------------------------------------- views */
 const VIEWS = {
-  tilt: { el: 44, az: 0, fov: 30 },
+  tilt: { el: 61, az: 0, fov: 30 }, // high enough that pieces don't hide the squares behind them
   top: { el: 78, az: 0, fov: 26 },
   low: { el: 25, az: 0.38, fov: 30 },
 };
@@ -752,6 +752,15 @@ export function create3DBoard(container, opts = {}) {
     }
     wake();
   }
+  // The square a drop lands on: the square under the point, or, if that is not a legal move, the nearest
+  // legal square within about three quarters of a square, so a near miss still counts.
+  function dropSq(x, z) {
+    const exact = squareAt(x, z);
+    if (exact >= 0 && HL.targets.has(exact)) return exact;
+    let best = -1, bd = 0.78;
+    for (const t of HL.targets) { const p = sqPos(t), d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; best = t; } }
+    return best >= 0 ? best : exact;
+  }
   function stepDrag() {
     if (!drag.active) return false;
     const r = drag.rec;
@@ -765,7 +774,7 @@ export function create3DBoard(container, opts = {}) {
     r.lean.y += (clamp(-drag.vel.x * 1.6, -0.35, 0.35) - r.lean.y) * 0.2;
     r.scale += ((drag.moved ? 1.06 : 1.02) - r.scale) * 0.3;
     placeRec(r);
-    const h = drag.moved ? squareAt(r.pos.x, r.pos.z) : -1, hv = (h >= 0 && HL.targets.has(h)) ? h : -1;
+    const d = drag.moved ? dropSq(drag.goal.x, drag.goal.z) : -1, hv = (d >= 0 && HL.targets.has(d)) ? d : -1;
     if (hv !== drag.hover) { drag.hover = hv; updateHL(); }
     return true;
   }
@@ -780,7 +789,7 @@ export function create3DBoard(container, opts = {}) {
     const r = drag.rec, from = drag.from, moved = drag.moved;
     drag.hover = -1; updateHL();
     if (!moved) { settleBack(r, false); if (!cancel) cb.onSquareUp(pick(ev), ev, { dragged: false, from }); wake(); return; }
-    const to = cancel ? -1 : squareAt(r.pos.x, r.pos.z);
+    const to = cancel ? -1 : dropSq(drag.goal.x, drag.goal.z); // where the finger is, not where the trailing piece is
     drag.dropInfo = { rec: r, from, to }; drag.consumed = false;
     let res = false;
     if (to >= 0 && to !== from) res = cb.onSquareUp(to, ev, { dragged: true, from });

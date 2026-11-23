@@ -114,7 +114,11 @@ main{flex:1;display:flex;flex-direction:column;align-items:center;min-height:0;o
 @keyframes floatup{0%{transform:translateY(0) scale(.6);opacity:0}15%{opacity:1;transform:translateY(-10px) scale(1.1)}100%{transform:translateY(-90px) scale(1);opacity:0}}
 
 /* panel */
-.panel{width:100%;max-width:640px;padding:6px 12px 8px;display:flex;flex-direction:column;gap:8px;min-height:0;flex:1;overflow-y:auto}
+.panel{position:relative;width:100%;max-width:640px;padding:6px 12px 8px;display:flex;flex-direction:column;gap:8px;min-height:0;flex:1;overflow-y:auto}
+.panel.more{-webkit-mask-image:linear-gradient(#000 calc(100% - 34px),transparent);mask-image:linear-gradient(#000 calc(100% - 34px),transparent)}
+#moreCue{position:fixed;z-index:50;transform:translateX(-50%);display:none;align-items:center;gap:5px;height:30px;padding:0 13px;border-radius:15px;border:1px solid var(--line);background:rgba(30,22,17,.94);color:var(--accent2);font:600 13px Inter,system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.45);cursor:pointer}
+#moreCue.on{display:inline-flex;animation:cueIn .35s ease-out}
+@keyframes cueIn{from{opacity:0;transform:translate(-50%,6px)}to{opacity:1;transform:translate(-50%,0)}}
 .status{display:flex;align-items:center;gap:8px;min-height:22px;font-size:14px;color:var(--muted)}
 .status b{color:var(--text);font-weight:600}
 .status .op{margin-left:auto;font-family:Fraunces,Georgia,serif;color:var(--accent2);font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62%;padding:3px 10px 3px 9px;border-radius:999px;background:color-mix(in srgb,var(--accent2) 14%,transparent);border:1px solid color-mix(in srgb,var(--accent2) 35%,transparent)}
@@ -152,6 +156,7 @@ main{flex:1;display:flex;flex-direction:column;align-items:center;min-height:0;o
 .progress i.done{background:var(--good)}
 .progress i.now{background:var(--accent)}
 .feedback{font-size:14px;min-height:20px;margin-top:8px}
+.coachcard .feedback:empty{display:none}
 .feedback.good{color:var(--good)}.feedback.bad{color:var(--bad)}
 .reacts{display:flex;gap:6px;justify-content:space-between}
 .reacts button{flex:1;height:38px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-size:19px}
@@ -247,7 +252,13 @@ details.how summary{cursor:pointer;font-weight:600;margin-top:8px;font-size:14px
 .strip .clock.paused{opacity:.6}
 .tcs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.tcs button{padding:9px 4px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;display:flex;flex-direction:column;align-items:center;gap:2px}
 .tcs button b{font-size:15px}.tcs button span{font-size:11.5px;color:var(--muted)}.tcs button.on{border-color:var(--accent);background:rgba(227,165,90,.16)}
-.backlink{background:none;border:0;color:var(--accent2);font:600 14px Inter,system-ui,sans-serif;padding:2px 2px 8px;cursor:pointer}
+.backlink{position:absolute;top:15px;right:25px;z-index:1;background:none;border:0;color:var(--accent2);font:600 13px Inter,system-ui,sans-serif;padding:4px 2px;cursor:pointer}
+.backlink + .card h3{padding-right:96px}
+.task{margin-top:10px;padding:9px 11px;border-radius:10px;background:rgba(232,168,90,.10);border-left:3px solid var(--accent);color:var(--text);font-weight:600;font-size:14.5px;line-height:1.4}
+.task span{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:2px}
+.coachcard.fresh > p,.coachcard.fresh .task{animation:sayIn .45s ease-out both}.coachcard.fresh .task{animation-delay:.15s}
+@keyframes sayIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.coachcard.fresh > p,.coachcard.fresh .task,#moreCue.on{animation:none}}
 .path{margin-top:10px}.path .item .t span{white-space:normal}
 .path .step{display:flex;align-items:center;gap:10px}
 .stepdot{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;background:rgba(255,255,255,.07);color:var(--muted)}
@@ -1666,7 +1677,7 @@ function layout(){
   { // 3D view: portrait-ish on phones (captured pieces at the ends), landscape on wide screens (captured pieces at the sides)
     const b3=$('#board3d'), sq8=SQ*8+frame*2; let w,h;
     if(wide){ h=Math.round(Math.min(vh-150,sq8+40)); w=Math.round(Math.min(availW+frame*2,h*1.42)); }
-    else { w=sq8; h=Math.round(Math.max(w,Math.min(availH+frame*2,w*1.18))); }
+    else { w=sq8; h=Math.round(Math.max(w,Math.min(availH+frame*2,w*1.04))); }
     b3.style.width=w+'px'; b3.style.height=h+'px'; }
   placeAll();
 }
@@ -3221,7 +3232,8 @@ function renderPanel(){
     else {
       const L=s.les, st=learnStep(s), li=LESSONS.indexOf(L), last=li===LESSONS.length-1;
       let dots=''; for(let i=0;i<L.steps.length;i++) dots+=`<i class="${(i<s.step||s.done)?'done':(i===s.step?'now':'')}"></i>`;
-      h+=`<div class="card"><h3>${esc(L.title)} <span style="font-size:12px;color:var(--muted);font-family:Inter">lesson ${li+1} of ${LESSONS.length}</span></h3><p>${esc(L.about)}</p>${s.done?'':`<p style="margin-top:8px"><b>${esc(st.task)}</b></p>`}<div class="progress">${dots}</div><div class="feedback ${s.msgType}">${esc(s.msg)}</div></div>`;
+      const key=L.id+':'+s.step+':'+!!s.done, fresh=renderPanel.lesKey!==key; renderPanel.lesKey=key; if(fresh) renderPanel.toTop=true;
+      h+=`<div class="card coachcard${fresh?' fresh':''}"><h3>${esc(L.title)} <span style="font-size:12px;color:var(--muted);font-family:Inter">lesson ${li+1} of ${LESSONS.length}</span></h3><p>${esc(L.about)}</p>${s.done?'':`<div class="task"><span>Your turn</span>${esc(st.task)}</div>`}<div class="progress">${dots}</div><div class="feedback ${s.msgType}">${esc(s.msg)}</div></div>`;
       h+=`<div class="controls"><button class="btn" data-act="lslist">${ICON.list}Lessons</button><button class="btn" data-act="hint" ${s.done||s.checking?'disabled':''}>${ICON.bulb}Hint</button><button class="btn" data-act="lsretry">${ICON.retry}Restart</button>${s.done?(last?`<button class="btn primary" data-act="lsplay">Play Twig</button>`:`<button class="btn primary" data-act="lsnext">Next lesson</button>`):''}</div>`;
     }
   } else {
@@ -3244,7 +3256,22 @@ function renderPanel(){
   P.innerHTML=h;
   { const op=P.querySelector('.status .op'), t=op?op.textContent:''; if(op&&t!==renderPanel.lastOp) op.classList.add('new'); renderPanel.lastOp=t; } // gentle pop only when the opening name changes
   const ml=$('#mlist'); if(ml){ const c=ml.querySelector('.cur'); if(c) ml.scrollLeft=c.offsetLeft-ml.clientWidth/2; else ml.scrollLeft=ml.scrollWidth; }
+  if(renderPanel.toTop){ renderPanel.toTop=false; P.scrollTop=0; }
+  const pb=P.querySelector('.controls .btn.primary'), pk=pb?pb.textContent:'';
+  if(pb&&pk!==renderPanel.lastPrimary&&S.tab==='learn') requestAnimationFrame(()=>{ const r=pb.getBoundingClientRect(), q=P.getBoundingClientRect(); if(r.bottom>q.bottom-8) P.scrollTo({top:P.scrollTop+r.bottom-q.bottom+16,behavior:'smooth'}); });
+  renderPanel.lastPrimary=pk;
+  requestAnimationFrame(updateMoreCue);
 }
+// "More": phones hide scroll bars, so when the panel has more below, its bottom fades and a small button
+// says so (tap it to scroll down). It disappears at the end.
+const moreCue=document.createElement('button'); moreCue.id='moreCue'; moreCue.type='button'; moreCue.innerHTML='More <span aria-hidden="true">▾</span>'; document.body.appendChild(moreCue);
+function updateMoreCue(){ const P=$('#panel'); if(!P) return; const left=P.clientHeight>40?P.scrollHeight-P.scrollTop-P.clientHeight:0, more=left>12, pill=left>48; // a sliver: just fade (it peeks out); more: show the pill too
+  P.classList.toggle('more',more); moreCue.classList.toggle('on',pill);
+  if(pill){ const r=P.getBoundingClientRect(); moreCue.style.left=(r.left+r.width/2)+'px'; moreCue.style.top=(r.bottom-38)+'px'; } }
+moreCue.addEventListener('click',()=>{ ac(); const P=$('#panel'); P.scrollBy({top:Math.max(90,P.clientHeight*0.7),behavior:'smooth'}); });
+$('#panel').addEventListener('scroll',updateMoreCue,{passive:true});
+if(window.ResizeObserver) new ResizeObserver(()=>updateMoreCue()).observe($('#panel'));
+window.addEventListener('resize',()=>setTimeout(updateMoreCue,60));
 function renderAll(){ renderStrips(); renderPanel(); renderHL(); }
 function setView(v){
   const s=cur(); const n=s.game.moves.length;

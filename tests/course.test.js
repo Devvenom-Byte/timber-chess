@@ -27,6 +27,16 @@ async function waitFor(fn, ms = 15000, step = 100) { const s = Date.now(); while
   await page.screenshot({ path: path.join(__dirname, 'output', 'course-path.png') });
   await page.click('#sheet [data-step="0"]'); await sleep(500);
   check(await tc(() => window.__tc.sessions.learn.les && window.__tc.sessions.learn.les.id === 'pawn'), 'tapping step 1 opens the first lesson');
+  check(/Your turn/i.test(await page.locator('#panel .task').innerText()), 'the task is shown in a "Your turn" box');
+  // a short screen: the hidden part of the panel is signposted by a "More" button that scrolls
+  await page.setViewportSize({ width: 390, height: 700 }); await sleep(400);
+  const P = () => tc(() => { const p = document.getElementById('panel'); return { left: p.scrollHeight - p.scrollTop - p.clientHeight, top: p.scrollTop, cue: document.getElementById('moreCue').classList.contains('on'), fade: p.classList.contains('more') }; });
+  let pm = await P(); check(pm.left > 48 && pm.cue && pm.fade, `short screen: "More" shows (${Math.round(pm.left)} px hidden)`);
+  await page.click('#moreCue'); await sleep(700); pm = await P();
+  check(pm.top > 0, 'tapping "More" scrolls the panel down');
+  await tc(() => { const p = document.getElementById('panel'); p.scrollTop = p.scrollHeight; }); await sleep(200); pm = await P();
+  check(!pm.cue && !pm.fade, '"More" disappears at the end');
+  await page.setViewportSize({ width: 390, height: 844 }); await sleep(400);
 
   // coordinates: find the square
   await tc(() => window.__tc.startCoords()); await sleep(300);
